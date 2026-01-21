@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BTC LIVE</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 20px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      overflow-x: hidden;
+    }
+
+    .container {
+      width: 90%;
+      max-width: 1000px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .title {
+      font-size: 1.2rem;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      margin-bottom: 10px;
+    }
+
+    .price {
+      font-size: 4rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #f0f0f0, #ffffff, #f0f0f0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 40px rgba(255,255,255,0.3);
+      transition: all 0.3s ease;
+    }
+
+    .price.up {
+      background: linear-gradient(90deg, #00ff88, #00ffcc, #00ff88);
+      -webkit-background-clip: text;
+      text-shadow: 0 0 40px rgba(0,255,136,0.5);
+    }
+
+    .price.down {
+      background: linear-gradient(90deg, #ff4466, #ff6688, #ff4466);
+      -webkit-background-clip: text;
+      text-shadow: 0 0 40px rgba(255,68,102,0.5);
+    }
+
+    .chart-container {
+      position: relative;
+      background: linear-gradient(180deg, rgba(20,20,35,0.9) 0%, rgba(10,10,20,0.95) 100%);
+      border-radius: 20px;
+      padding: 20px;
+      padding-left: 80px;
+      padding-bottom: 50px;
+      box-shadow:
+        0 0 60px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.1),
+        0 0 100px rgba(100,50,255,0.1);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .chart-wrapper {
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+      cursor: crosshair;
+    }
+
+    .y-axis {
+      position: absolute;
+      left: 0;
+      top: 20px;
+      bottom: 20px;
+      width: 75px;
+      font-size: 0.7rem;
+      color: #888;
+      text-align: right;
+      padding-right: 8px;
+    }
+
+    .y-label {
+      position: absolute;
+      right: 8px;
+      transform: translateY(-50%);
+      transition: top 0.3s ease, color 0.3s ease;
+    }
+    .y-label.max { color: #00ff88; }
+    .y-label.min { color: #ff4466; }
+    .y-label.current {
+      color: #fff;
+      font-weight: bold;
+      text-shadow: 0 0 10px rgba(255,255,255,0.5);
+    }
+
+    .time-axis {
+      position: absolute;
+      bottom: 10px;
+      left: 80px;
+      right: 20px;
+      height: 30px;
+      overflow: hidden;
+      font-size: 0.75rem;
+      color: #666;
+    }
+
+    .time-mark {
+      position: absolute;
+      transform: translateX(-50%);
+      transition: left 0.1s linear;
+    }
+
+    .tooltip {
+      position: absolute;
+      background: rgba(0,0,0,0.9);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 8px;
+      padding: 8px 14px;
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 600;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      z-index: 100;
+    }
+
+    .tooltip.visible { opacity: 1; }
+
+    .status {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: #666;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff4444;
+      box-shadow: 0 0 10px #ff4444;
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.connected {
+      background: #00ff88;
+      box-shadow: 0 0 10px #00ff88;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .data-feed {
+      margin-top: 20px;
+      background: rgba(10,10,20,0.8);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: 'Monaco', 'Consolas', monospace;
+      font-size: 0.8rem;
+    }
+
+    .data-feed-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      color: #666;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      position: sticky;
+      top: 0;
+      background: rgba(10,10,20,0.95);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .ws-status { color: #00ff88; }
+    .ws-status.stale { color: #ff4466; }
+
+    .data-row {
+      display: flex;
+      padding: 8px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      animation: fadeIn 0.3s ease;
+    }
+
+    .data-row:hover { background: rgba(255,255,255,0.05); }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .data-time { color: #888; width: 90px; flex-shrink: 0; }
+    .data-price { color: #fff; font-weight: 600; margin-left: 20px; width: 110px; }
+    .data-price.up { color: #00ff88; }
+    .data-price.down { color: #ff4466; }
+    .data-change { margin-left: auto; font-size: 0.75rem; width: 70px; text-align: right; }
+    .data-change.up { color: #00ff88; }
+    .data-change.down { color: #ff4466; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">Bitcoin / USDT</div>
+      <div class="price" id="price">---.--</div>
+    </div>
+
+    <div class="chart-container">
+      <div class="status">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Connecting...</span>
+      </div>
+      <div class="y-axis" id="yAxis">
+        <div class="y-label max" id="maxPrice">--</div>
+        <div class="y-label current" id="currentPriceLabel">--</div>
+        <div class="y-label min" id="minPrice">--</div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="chart"></canvas>
+        <div class="tooltip" id="tooltip"></div>
+      </div>
+      <div class="time-axis" id="timeAxis"></div>
+    </div>
+
+    <div class="data-feed" id="dataFeed">
+      <div class="data-feed-header">
+        <span>Chart Data (1s intervals)</span>
+        <span class="ws-status" id="wsStatus">--</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================
+    // CONFIGURATION
+    // ============================================
+    const CHART_POINTS = 30;        // Number of data points on chart
+    const SAMPLE_INTERVAL = 1000;   // Sample price every 1 second
+    const DOT_POSITION = 0.75;      // Current dot at 75% of width
+
+    // ============================================
+    // STATE
+    // ============================================
+    const chartData = [];           // Array of {time, price} - exactly CHART_POINTS entries
+    let currentPrice = null;        // Latest price from WebSocket
+    let lastSampleTime = null;      // Last time we sampled
+    let wsConnected = false;
+    let wsMessageCount = 0;
+    let lastWsTime = 0;
+    let lastMinPrice = null;
+    let lastMaxPrice = null;
+    let wigglePhase = 0;
+
+    // ============================================
+    // DOM ELEMENTS
+    // ============================================
+    const canvas = document.getElementById('chart');
+    const ctx = canvas.getContext('2d');
+    const tooltip = document.getElementById('tooltip');
+    const priceEl = document.getElementById('price');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const timeAxis = document.getElementById('timeAxis');
+    const dataFeed = document.getElementById('dataFeed');
+    const maxPriceEl = document.getElementById('maxPrice');
+    const minPriceEl = document.getElementById('minPrice');
+    const currentPriceLabel = document.getElementById('currentPriceLabel');
+    const wsStatusEl = document.getElementById('wsStatus');
+
+    // ============================================
+    // UTILITIES
+    // ============================================
+    function resize() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = 280;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    function formatTime(ts) {
+      const d = new Date(ts);
+      return d.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    }
+
+    function formatPrice(p) {
+      return parseFloat(p).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    // ============================================
+    // SAMPLING - Core reliability mechanism
+    // ============================================
+    function samplePrice() {
+      if (currentPrice === null) return;
+
+      const now = Date.now();
+      const prevPrice = chartData.length > 0 ? chartData[chartData.length - 1].price : null;
+
+      // Add new sample
+      chartData.push({
+        time: now,
+        price: currentPrice
+      });
+
+      // Keep exactly CHART_POINTS
+      while (chartData.length > CHART_POINTS) {
+        chartData.shift();
+      }
+
+      lastSampleTime = now;
+
+      // Add to data feed
+      addDataRow(now, currentPrice, prevPrice);
+    }
+
+    // Start sampling at exact 1-second intervals
+    function startSampling() {
+      // Align to next second boundary
+      const now = Date.now();
+      const msToNextSecond = 1000 - (now % 1000);
+
+      setTimeout(() => {
+        samplePrice();
+        setInterval(samplePrice, SAMPLE_INTERVAL);
+      }, msToNextSecond);
+    }
+
+    // ============================================
+    // DATA FEED
+    // ============================================
+    function addDataRow(time, price, prevPrice) {
+      const row = document.createElement('div');
+      row.className = 'data-row';
+
+      const change = prevPrice ? price - prevPrice : 0;
+      const changeClass = change >= 0 ? 'up' : 'down';
+      const changeSign = change >= 0 ? '+' : '';
+
+      row.innerHTML = `
+        <span class="data-time">${formatTime(time)}</span>
+        <span class="data-price ${changeClass}">$${formatPrice(price)}</span>
+        <span class="data-change ${changeClass}">${changeSign}${change.toFixed(2)}</span>
+      `;
+
+      const header = dataFeed.querySelector('.data-feed-header');
+      header.after(row);
+
+      // Keep max 50 rows
+      const rows = dataFeed.querySelectorAll('.data-row');
+      if (rows.length > 50) {
+        rows[rows.length - 1].remove();
+      }
+    }
+
+    // ============================================
+    // TIME AXIS - Shows :00, :15, :30, :45 only
+    // ============================================
+    function updateTimeAxis(now) {
+      const w = canvas.width;
+      const padding = 20;
+      const chartWidth = w - padding * 2;
+      const dotX = padding + chartWidth * DOT_POSITION;
+      const pxPerMs = chartWidth / (CHART_POINTS * SAMPLE_INTERVAL);
+
+      // Visible time window
+      const windowMs = CHART_POINTS * SAMPLE_INTERVAL;
+      const windowStart = now - windowMs * DOT_POSITION;
+      const windowEnd = now + windowMs * (1 - DOT_POSITION);
+
+      // Find 15-second marks
+      const firstMark = Math.ceil(windowStart / 15000) * 15000;
+      let html = '';
+
+      for (let t = firstMark; t <= windowEnd; t += 15000) {
+        const x = dotX - (now - t) * pxPerMs;
+        if (x >= 0 && x <= w) {
+          const opacity = t > now ? 0.3 : 0.8;
+          html += `<span class="time-mark" style="left:${x}px;opacity:${opacity}">${formatTime(t)}</span>`;
+        }
+      }
+
+      timeAxis.innerHTML = html;
+    }
+
+    // ============================================
+    // CHART RENDERING
+    // ============================================
+    function draw(now) {
+      const w = canvas.width;
+      const h = canvas.height;
+      const padding = 20;
+      const chartWidth = w - padding * 2;
+      const chartHeight = h - padding * 2;
+
+      ctx.clearRect(0, 0, w, h);
+
+      if (chartData.length < 2 || currentPrice === null) return;
+
+      const dotX = padding + chartWidth * DOT_POSITION;
+      const pxPerMs = chartWidth / (CHART_POINTS * SAMPLE_INTERVAL);
+
+      // Calculate price range from ONLY the displayed chart data
+      const displayedPrices = chartData.map(d => d.price);
+      displayedPrices.push(currentPrice);
+
+      const minP = Math.min(...displayedPrices);
+      const maxP = Math.max(...displayedPrices);
+      const range = maxP - minP;
+
+      // Add small padding (5%) but ensure minimum range for visual interest
+      const minRange = maxP * 0.0001; // 0.01% of price as minimum range
+      const effectiveRange = Math.max(range, minRange);
+      const paddingAmount = effectiveRange * 0.05;
+
+      const paddedMin = minP - paddingAmount;
+      const paddedMax = maxP + paddingAmount;
+      const paddedRange = paddedMax - paddedMin;
+
+      lastMinPrice = minP;
+      lastMaxPrice = maxP;
+
+      // Price to Y coordinate - maps price to full chart height
+      const priceToY = (p) => {
+        const normalized = (p - paddedMin) / paddedRange; // 0 to 1
+        return padding + chartHeight * (1 - normalized);  // Flip for screen coords
+      };
+
+      // Update Y-axis labels - position at top and bottom of chart
+      maxPriceEl.textContent = '$' + formatPrice(maxP);
+      maxPriceEl.style.top = '0%';
+
+      minPriceEl.textContent = '$' + formatPrice(minP);
+      minPriceEl.style.top = '100%';
+
+      // Current price label positioned based on its value
+      const currentYPercent = ((currentPrice - minP) / (maxP - minP || 1)) * 100;
+      currentPriceLabel.textContent = '$' + formatPrice(currentPrice);
+      currentPriceLabel.style.top = (100 - currentYPercent) + '%';
+
+      // Build points array from chart data
+      const points = chartData.map(d => ({
+        x: dotX - (now - d.time) * pxPerMs,
+        y: priceToY(d.price),
+        price: d.price,
+        time: d.time
+      }));
+
+      // Add current point with gentle wiggle
+      wigglePhase += 0.05; // Slower wiggle
+      const wiggle = Math.sin(wigglePhase) * 1.5; // Reduced amplitude
+      points.push({
+        x: dotX,
+        y: priceToY(currentPrice) + wiggle,
+        price: currentPrice,
+        time: now,
+        isCurrent: true
+      });
+
+      // Color based on LAST change (not 30s trend)
+      const prevPrice = chartData.length > 0 ? chartData[chartData.length - 1].price : currentPrice;
+      const isUp = currentPrice >= prevPrice;
+      const mainColor = isUp ? '#00ff88' : '#ff4466';
+      const glowColor = isUp ? 'rgba(0,255,136,' : 'rgba(255,68,102,';
+
+      // Draw grid
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 5; i++) {
+        const y = padding + chartHeight * (i / 4);
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(w - padding, y);
+        ctx.stroke();
+      }
+
+      // Draw 75% line
+      ctx.beginPath();
+      ctx.moveTo(dotX, padding);
+      ctx.lineTo(dotX, h - padding);
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctx.stroke();
+
+      // Filter to visible
+      const visible = points.filter(p => p.x >= padding - 20 && p.x <= w - padding + 20);
+      if (visible.length < 2) return;
+
+      // Catmull-Rom spline for smooth curves through all points
+      function catmullRomSpline(p0, p1, p2, p3, t) {
+        const t2 = t * t;
+        const t3 = t2 * t;
+        return {
+          x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+          y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
+        };
+      }
+
+      // Generate smooth curve points
+      const curvePoints = [];
+      const segments = 10; // Points between each data point
+
+      for (let i = 0; i < visible.length - 1; i++) {
+        const p0 = visible[Math.max(0, i - 1)];
+        const p1 = visible[i];
+        const p2 = visible[i + 1];
+        const p3 = visible[Math.min(visible.length - 1, i + 2)];
+
+        for (let j = 0; j < segments; j++) {
+          const t = j / segments;
+          curvePoints.push(catmullRomSpline(p0, p1, p2, p3, t));
+        }
+      }
+      curvePoints.push(visible[visible.length - 1]);
+
+      // Gradient fill
+      const gradient = ctx.createLinearGradient(0, 0, 0, h);
+      gradient.addColorStop(0, glowColor + '0.4)');
+      gradient.addColorStop(0.5, glowColor + '0.1)');
+      gradient.addColorStop(1, glowColor + '0)');
+
+      ctx.beginPath();
+      ctx.moveTo(curvePoints[0].x, h - padding);
+      ctx.lineTo(curvePoints[0].x, curvePoints[0].y);
+      for (let i = 1; i < curvePoints.length; i++) {
+        ctx.lineTo(curvePoints[i].x, curvePoints[i].y);
+      }
+      ctx.lineTo(curvePoints[curvePoints.length - 1].x, h - padding);
+      ctx.closePath();
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Draw line with glow
+      ctx.beginPath();
+      ctx.moveTo(curvePoints[0].x, curvePoints[0].y);
+      for (let i = 1; i < curvePoints.length; i++) {
+        ctx.lineTo(curvePoints[i].x, curvePoints[i].y);
+      }
+
+      ctx.shadowColor = mainColor;
+      ctx.shadowBlur = 20;
+      ctx.strokeStyle = mainColor;
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Draw node dots EXACTLY on the curve (use original visible points, not interpolated)
+      for (let i = 0; i < visible.length; i++) {
+        const p = visible[i];
+        if (p.isCurrent) continue;
+
+        // Find the corresponding curve point (at segment boundaries)
+        const curveIdx = i * segments;
+        const curveP = curvePoints[Math.min(curveIdx, curvePoints.length - 1)];
+
+        ctx.beginPath();
+        ctx.arc(curveP.x, curveP.y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fill();
+      }
+
+      // Draw current dot at the end of the curve
+      const currPoint = curvePoints[curvePoints.length - 1];
+      if (currPoint) {
+        ctx.beginPath();
+        ctx.arc(currPoint.x, currPoint.y, 12, 0, Math.PI * 2);
+        ctx.fillStyle = glowColor + '0.3)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(currPoint.x, currPoint.y, 7, 0, Math.PI * 2);
+        ctx.fillStyle = mainColor;
+        ctx.shadowColor = mainColor;
+        ctx.shadowBlur = 25;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(currPoint.x, currPoint.y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      // Store for hover (use curve points for accuracy)
+      canvas._points = visible;
+      canvas._curvePoints = curvePoints;
+    }
+
+    // ============================================
+    // HOVER
+    // ============================================
+    canvas.addEventListener('mousemove', (e) => {
+      if (!canvas._points || canvas._points.length < 2) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+
+      let closest = null;
+      let minDist = Infinity;
+      for (const p of canvas._points) {
+        const dist = Math.abs(p.x - x);
+        if (dist < minDist) {
+          minDist = dist;
+          closest = p;
+        }
+      }
+
+      if (closest && minDist < 30) {
+        tooltip.innerHTML = `<div>$${formatPrice(closest.price)}</div><div style="font-size:0.7rem;color:#888">${formatTime(closest.time)}</div>`;
+        tooltip.classList.add('visible');
+        tooltip.style.left = (closest.x + 20) + 'px';
+        tooltip.style.top = (closest.y - 20) + 'px';
+      } else {
+        tooltip.classList.remove('visible');
+      }
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      tooltip.classList.remove('visible');
+    });
+
+    // ============================================
+    // ANIMATION LOOP
+    // ============================================
+    function animate() {
+      const now = Date.now();
+      draw(now);
+      updateTimeAxis(now);
+
+      // Update WS status
+      if (lastWsTime > 0) {
+        const ago = ((now - lastWsTime) / 1000).toFixed(1);
+        wsStatusEl.textContent = `${wsMessageCount} trades | ${ago}s ago`;
+        wsStatusEl.classList.toggle('stale', now - lastWsTime > 3000);
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    // ============================================
+    // WEBSOCKET
+    // ============================================
+    function connect() {
+      const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
+
+      ws.onopen = () => {
+        wsConnected = true;
+        statusDot.classList.add('connected');
+        statusText.textContent = 'LIVE';
+        wsMessageCount = 0;
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        const price = parseFloat(data.p);
+        const now = Date.now();
+
+        lastWsTime = now;
+        wsMessageCount++;
+
+        // Update current price
+        const prevPrice = currentPrice;
+        currentPrice = price;
+
+        // Update header display - color based on change from previous
+        priceEl.classList.remove('up', 'down');
+        if (prevPrice !== null && price !== prevPrice) {
+          priceEl.classList.add(price > prevPrice ? 'up' : 'down');
+        }
+        priceEl.textContent = formatPrice(price);
+      };
+
+      ws.onclose = () => {
+        wsConnected = false;
+        statusDot.classList.remove('connected');
+        statusText.textContent = 'Reconnecting...';
+        setTimeout(connect, 2000);
+      };
+
+      ws.onerror = () => ws.close();
+    }
+
+    // ============================================
+    // INIT
+    // ============================================
+    connect();
+    startSampling();
+    animate();
+  </script>
+</body>
+</html>

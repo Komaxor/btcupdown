@@ -49,6 +49,23 @@ class PriceWebSocketServer {
         return;
       }
 
+      if (req.method === 'GET' && req.url.startsWith('/api/outcomes')) {
+        const url = new URL(req.url, `http://localhost:${this.port}`);
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '5', 10), 50);
+
+        db.getRecentOutcomes(limit)
+          .then(rows => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(rows));
+          })
+          .catch(err => {
+            console.error('Outcomes API error:', err.message);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Internal server error' }));
+          });
+        return;
+      }
+
       // Telegram auth endpoint
       if (req.method === 'POST' && req.url === '/api/auth/telegram') {
         let body = '';

@@ -117,9 +117,25 @@ async function completeMinuteOutcome(minuteStart, finalPrice) {
   );
 }
 
+async function getRecentOutcomes(limit = 5) {
+  const result = await pool.query(
+    `SELECT price_to_beat, final_price, outcome
+     FROM btc_1m_outcomes
+     WHERE outcome IS NOT NULL
+     ORDER BY minute_start DESC
+     LIMIT $1`,
+    [limit]
+  );
+  return result.rows.reverse().map(row => ({
+    priceToBeat: parseFloat(row.price_to_beat),
+    finalPrice: parseFloat(row.final_price),
+    outcome: row.outcome
+  }));
+}
+
 async function close() {
   await pool.end();
   console.log('Database pool closed');
 }
 
-module.exports = { init, insertPrice, getRecentPrices, upsertUser, getUser, updateBalance, insertMinuteStart, completeMinuteOutcome, close };
+module.exports = { init, insertPrice, getRecentPrices, upsertUser, getUser, updateBalance, insertMinuteStart, completeMinuteOutcome, getRecentOutcomes, close };

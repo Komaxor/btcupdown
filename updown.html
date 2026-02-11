@@ -343,7 +343,7 @@
       font-size: 1.1rem;
       background: rgba(255,255,255,0.05);
       border-radius: 6px;
-      cursor: pointer;
+      cursor: default;
       position: relative;
       transition: background 0.2s;
     }
@@ -1528,7 +1528,7 @@
       header.after(row);
 
       const rows = dataFeed.querySelectorAll('.data-row');
-      if (rows.length > 50) {
+      if (rows.length > 60) {
         rows[rows.length - 1].remove();
       }
     }
@@ -1655,23 +1655,35 @@
       // Horizontal target line (price to beat)
       if (priceToBeat !== null) {
         const targetY = priceToY(priceToBeat);
-        if (targetY >= padding && targetY <= h - padding) {
-          ctx.beginPath();
-          ctx.setLineDash([8, 4]);
-          ctx.moveTo(padding, targetY);
-          ctx.lineTo(w - padding, targetY);
-          ctx.strokeStyle = 'rgba(255, 204, 0, 0.5)';
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-          ctx.setLineDash([]);
-          ctx.lineWidth = 1;
+        const inRange = targetY >= padding && targetY <= h - padding;
+        const clampedY = Math.max(padding, Math.min(h - padding, targetY));
+        const aboveChart = targetY < padding;
+        const belowChart = targetY > h - padding;
 
-          // "Price to Beat" label on the line
-          ctx.font = '11px Segoe UI, system-ui, sans-serif';
-          ctx.fillStyle = 'rgba(255, 204, 0, 0.7)';
-          ctx.textAlign = 'left';
+        // Always draw the line (clamped to chart bounds)
+        ctx.beginPath();
+        ctx.setLineDash([8, 4]);
+        ctx.moveTo(padding, clampedY);
+        ctx.lineTo(w - padding, clampedY);
+        ctx.strokeStyle = 'rgba(255, 204, 0, 0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.lineWidth = 1;
+
+        // Label with arrow if out of range
+        ctx.font = '11px Segoe UI, system-ui, sans-serif';
+        ctx.fillStyle = 'rgba(255, 204, 0, 0.7)';
+        ctx.textAlign = 'left';
+        if (aboveChart) {
+          ctx.textBaseline = 'top';
+          ctx.fillText('▲ Price to Beat  $' + formatPrice(priceToBeat), padding + 8, clampedY + 4);
+        } else if (belowChart) {
           ctx.textBaseline = 'bottom';
-          ctx.fillText('Price to Beat', padding + 8, targetY - 4);
+          ctx.fillText('▼ Price to Beat  $' + formatPrice(priceToBeat), padding + 8, clampedY - 4);
+        } else {
+          ctx.textBaseline = 'bottom';
+          ctx.fillText('Price to Beat', padding + 8, clampedY - 4);
         }
       }
 
@@ -1983,12 +1995,33 @@
     }
 
     // ============================================
+    // LOAD PREVIOUS OUTCOMES FROM DB
+    // ============================================
+    async function loadOutcomes() {
+      try {
+        const resp = await fetch(location.origin + '/api/outcomes?limit=5');
+        if (!resp.ok) return;
+        const rows = await resp.json();
+        for (const row of rows) {
+          outcomes.push({
+            priceToBeat: row.priceToBeat,
+            outcome: row.finalPrice,
+            isUp: row.outcome === 'up'
+          });
+        }
+        if (outcomes.length > 0) renderOutcomes();
+      } catch (err) {
+        console.log('No previous outcomes available');
+      }
+    }
+
+    // ============================================
     // INIT
     // ============================================
     loadSession();
     updateEventTime();
     updateCountdown();
-    loadHistory().then(() => {
+    Promise.all([loadHistory(), loadOutcomes()]).then(() => {
       connect();
       startSampling();
       animate();

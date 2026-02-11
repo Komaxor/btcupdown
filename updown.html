@@ -1883,7 +1883,7 @@
     // ============================================
     function connect() {
       const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(wsProto + '//' + location.host);
+      const ws = new WebSocket(wsProto + '//' + location.host + '/ws');
       wsConnection = ws;
 
       ws.onopen = () => {

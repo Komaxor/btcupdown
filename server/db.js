@@ -1,9 +1,9 @@
 const { Pool } = require('pg');
 
-const pool = new Pool({
-  database: 'btcupdown',
-  max: 5,
-});
+const pool = new Pool(process.env.DATABASE_URL
+  ? { connectionString: process.env.DATABASE_URL, max: 5 }
+  : { database: 'btcupdown', max: 5 }
+);
 
 pool.on('error', (err) => {
   console.error('Unexpected database pool error:', err.message);

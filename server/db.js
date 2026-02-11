@@ -31,8 +31,19 @@ async function init() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS btc_1m_outcomes (
+      id BIGSERIAL PRIMARY KEY,
+      minute_start TIMESTAMPTZ NOT NULL,
+      price_to_beat NUMERIC(12,2) NOT NULL,
+      final_price NUMERIC(12,2),
+      outcome TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_btc_1m_outcomes_minute
+      ON btc_1m_outcomes (minute_start);
   `);
-  console.log('Database initialized (price_history + users tables ready)');
+  console.log('Database initialized (price_history + users + btc_1m_outcomes tables ready)');
 }
 
 async function insertPrice(price, sourceCount, timestamp) {
@@ -87,9 +98,28 @@ async function updateBalance(userId, newBalance) {
   );
 }
 
+async function insertMinuteStart(minuteStart, priceToBeat) {
+  await pool.query(
+    `INSERT INTO btc_1m_outcomes (minute_start, price_to_beat)
+     VALUES ($1, $2)
+     ON CONFLICT (minute_start) DO NOTHING`,
+    [new Date(minuteStart), priceToBeat.toFixed(2)]
+  );
+}
+
+async function completeMinuteOutcome(minuteStart, finalPrice) {
+  await pool.query(
+    `UPDATE btc_1m_outcomes
+     SET final_price = $2,
+         outcome = CASE WHEN $2 >= price_to_beat THEN 'up' ELSE 'down' END
+     WHERE minute_start = $1 AND outcome IS NULL`,
+    [new Date(minuteStart), finalPrice.toFixed(2)]
+  );
+}
+
 async function close() {
   await pool.end();
   console.log('Database pool closed');
 }
 
-module.exports = { init, insertPrice, getRecentPrices, upsertUser, getUser, updateBalance, close };
+module.exports = { init, insertPrice, getRecentPrices, upsertUser, getUser, updateBalance, insertMinuteStart, completeMinuteOutcome, close };

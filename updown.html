@@ -1374,7 +1374,7 @@
       const arrow = isUp ? '▲' : '▼';
       const sign = isUp ? '+' : '-';
 
-      priceDiffEl.innerHTML = `${arrow} ${sign}$${Math.abs(diff).toFixed(0)}`;
+      priceDiffEl.innerHTML = `${arrow} ${sign}$${Math.abs(diff).toFixed(2)}`;
       priceDiffEl.className = 'price-diff-small ' + (isUp ? 'up' : 'down');
       priceEl.className = 'price-value current ' + (isUp ? 'up' : '');
     }
@@ -1392,8 +1392,8 @@
     function updateEventTime() {
       const now = new Date();
       const mins = now.getMinutes();
-      const startMin = Math.floor(mins / 15) * 15;
-      const endMin = startMin + 15;
+      const startMin = mins;
+      const endMin = mins + 1;
 
       const month = now.toLocaleString('en-US', { month: 'long' });
       const day = now.getDate();
@@ -1402,9 +1402,12 @@
       const h12 = hour % 12 || 12;
 
       const startStr = `${h12}:${String(startMin).padStart(2, '0')}`;
-      const endStr = endMin === 60 ? `${(h12 % 12) + 1}:00` : `${h12}:${String(endMin).padStart(2, '0')}`;
+      const endH12 = endMin === 60 ? ((h12 % 12) + 1) : h12;
+      const endMinStr = endMin === 60 ? '00' : String(endMin).padStart(2, '0');
+      const endAmpm = (endMin === 60 && hour % 12 === 11) ? (ampm === 'AM' ? 'PM' : 'AM') : ampm;
+      const endStr = `${endH12}:${endMinStr}`;
 
-      eventTimeEl.textContent = `${month} ${day}, ${startStr}-${endStr}${ampm} ET`;
+      eventTimeEl.textContent = `${month} ${day}, ${startStr}-${endStr}${endAmpm} ET`;
     }
 
     // ============================================
@@ -1464,11 +1467,7 @@
           addOutcome(priceToBeat, currentPrice);
         }
 
-        // Update price to beat
-        if (currentPrice !== null) {
-          priceToBeat = currentPrice;
-          priceToBeatEl.textContent = '$' + formatPrice(priceToBeat);
-        }
+        // priceToBeat is now set by the server via 'price_to_beat' WebSocket message
 
         // Update event time display
         updateEventTime();
@@ -1666,6 +1665,13 @@
           ctx.stroke();
           ctx.setLineDash([]);
           ctx.lineWidth = 1;
+
+          // "Price to Beat" label on the line
+          ctx.font = '11px Segoe UI, system-ui, sans-serif';
+          ctx.fillStyle = 'rgba(255, 204, 0, 0.7)';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText('Price to Beat', padding + 8, targetY - 4);
         }
       }
 
@@ -1916,6 +1922,11 @@
         }
         if (data.type === 'bet_received' || data.type === 'bet_error') {
           console.log('Bet response:', data);
+          return;
+        }
+        if (data.type === 'price_to_beat') {
+          priceToBeat = parseFloat(data.priceToBeat);
+          priceToBeatEl.textContent = '$' + formatPrice(priceToBeat);
           return;
         }
 

@@ -12,6 +12,9 @@ class PriceWebSocketServer {
     this.clients = new Set();
     this.authenticatedClients = new Map(); // ws -> user data
     this.lastPrice = null;
+    this.priceToBeat = null;
+    this.currentMinuteStart = null;
+    this.minuteCheckInterval = null;
   }
 
   start(aggregator) {
@@ -95,6 +98,15 @@ class PriceWebSocketServer {
           p: this.lastPrice.toFixed(2),
           sources: 0,
           timestamp: Date.now()
+        }));
+      }
+
+      // Send current price to beat
+      if (this.priceToBeat !== null) {
+        ws.send(JSON.stringify({
+          type: 'price_to_beat',
+          priceToBeat: this.priceToBeat.toFixed(2),
+          minuteStart: this.currentMinuteStart
         }));
       }
 
@@ -182,6 +194,11 @@ class PriceWebSocketServer {
       }
     });
 
+    // Check for minute boundaries every 500ms
+    this.minuteCheckInterval = setInterval(() => {
+      this.checkMinuteBoundary();
+    }, 500);
+
     this.httpServer.listen(this.port, () => {
       console.log(`HTTP + WebSocket server listening on port ${this.port}`);
       console.log(`  WebSocket: ws://localhost:${this.port}`);
@@ -190,7 +207,64 @@ class PriceWebSocketServer {
     });
   }
 
+  checkMinuteBoundary() {
+    if (this.lastPrice === null) return;
+
+    const now = new Date();
+    const minuteStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(),
+                                  now.getHours(), now.getMinutes(), 0, 0);
+    const minuteStartMs = minuteStart.getTime();
+
+    // First run: initialize without recording an outcome
+    if (this.currentMinuteStart === null) {
+      this.currentMinuteStart = minuteStartMs;
+      this.priceToBeat = this.lastPrice;
+      db.insertMinuteStart(minuteStartMs, this.priceToBeat)
+        .catch(err => console.error('DB insertMinuteStart error:', err.message));
+      this.broadcastPriceToBeat();
+      return;
+    }
+
+    // New minute detected
+    if (minuteStartMs > this.currentMinuteStart) {
+      const finalPrice = this.lastPrice;
+
+      // Complete the previous minute's outcome
+      db.completeMinuteOutcome(this.currentMinuteStart, finalPrice)
+        .catch(err => console.error('DB completeMinuteOutcome error:', err.message));
+
+      // Start new minute
+      this.currentMinuteStart = minuteStartMs;
+      this.priceToBeat = finalPrice;
+
+      db.insertMinuteStart(minuteStartMs, this.priceToBeat)
+        .catch(err => console.error('DB insertMinuteStart error:', err.message));
+
+      this.broadcastPriceToBeat();
+    }
+  }
+
+  broadcastPriceToBeat() {
+    if (this.priceToBeat === null) return;
+
+    const message = JSON.stringify({
+      type: 'price_to_beat',
+      priceToBeat: this.priceToBeat.toFixed(2),
+      minuteStart: this.currentMinuteStart
+    });
+
+    for (const client of this.clients) {
+      if (client.readyState === 1) {
+        client.send(message);
+      }
+    }
+  }
+
   stop() {
+    if (this.minuteCheckInterval) {
+      clearInterval(this.minuteCheckInterval);
+      this.minuteCheckInterval = null;
+    }
     if (this.wss) {
       for (const client of this.clients) {
         client.close();

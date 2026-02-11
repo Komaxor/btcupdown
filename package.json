@@ -1,5 +1,14 @@
 {
+  "name": "btcupdown",
+  "version": "1.0.0",
+  "description": "BTC price aggregator from multiple exchanges",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
   "dependencies": {
+    "dotenv": "^17.2.4",
+    "pg": "^8.18.0",
     "ws": "^8.19.0"
   }
 }

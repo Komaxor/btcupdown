@@ -1,0 +1,1988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Up/Down — CEX Mid Price</title>
+  <script async src="https://telegram.org/js/telegram-widget.js?22"
+    data-telegram-login="cexmidpricebot"
+    data-size="medium"
+    data-radius="8"
+    data-userpic="false"
+    data-onauth="onTelegramAuth(user)"
+    data-request-access="write">
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 20px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      overflow-x: hidden;
+    }
+
+    .main-layout {
+      width: 95%;
+      max-width: 1400px;
+      display: flex;
+      gap: 20px;
+    }
+
+    .left-panel {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .right-panel {
+      width: 320px;
+      flex-shrink: 0;
+    }
+
+    /* Polymarket-style Header */
+    .header {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding: 16px;
+      background: rgba(20,20,35,0.6);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .btc-logo {
+      width: 56px;
+      height: 56px;
+      background: #f7931a;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .header-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .event-title {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .header-icons {
+      display: flex;
+      gap: 12px;
+    }
+
+    .header-icon {
+      color: #666;
+      cursor: pointer;
+      font-size: 1.2rem;
+      transition: color 0.15s;
+    }
+
+    .header-icon:hover { color: #fff; }
+
+    .event-time {
+      font-size: 0.9rem;
+      color: #888;
+      margin-bottom: 16px;
+    }
+
+    .price-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 40px;
+    }
+
+    .price-block {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .price-label {
+      font-size: 0.75rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .price-label-with-diff {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .price-diff-small {
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .price-diff-small.up { color: #44b77b; }
+    .price-diff-small.down { color: #ef4444; }
+
+    .price-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .price-value.beat { color: #fff; }
+    .price-value.current { color: #ef4444; }
+    .price-value.current.up { color: #44b77b; }
+
+    .countdown-block {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .countdown-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .countdown-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #ef4444;
+      line-height: 1;
+    }
+
+    .countdown-label {
+      font-size: 0.65rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .chart-container {
+      position: relative;
+      background: linear-gradient(180deg, rgba(20,20,35,0.9) 0%, rgba(10,10,20,0.95) 100%);
+      border-radius: 20px;
+      padding: 20px;
+      padding-left: 90px;
+      padding-bottom: 50px;
+      box-shadow:
+        0 0 60px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.1),
+        0 0 100px rgba(100,50,255,0.1);
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: box-shadow 0.3s ease;
+    }
+
+    .chart-container.flash {
+      box-shadow:
+        0 0 100px rgba(255,255,255,0.3),
+        inset 0 0 50px rgba(255,255,255,0.1),
+        0 0 200px rgba(255,200,0,0.3);
+    }
+
+    .chart-wrapper {
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+      cursor: crosshair;
+    }
+
+    .y-axis {
+      position: absolute;
+      left: 0;
+      top: 20px;
+      bottom: 50px;
+      width: 85px;
+      font-size: 0.75rem;
+      text-align: right;
+      padding-right: 10px;
+    }
+
+    .y-label {
+      position: absolute;
+      right: 10px;
+      transform: translateY(-50%);
+      white-space: nowrap;
+    }
+
+    .y-label.max {
+      top: 10%;
+      color: #00ff88;
+    }
+
+    .y-label.min {
+      top: 90%;
+      color: #ff4466;
+    }
+
+    .y-label.current {
+      color: #fff;
+      font-weight: bold;
+      font-size: 0.85rem;
+      text-shadow: 0 0 10px rgba(255,255,255,0.5);
+      transition: top 0.3s ease;
+    }
+
+    .time-axis {
+      position: absolute;
+      bottom: 10px;
+      left: 90px;
+      right: 20px;
+      height: 30px;
+      overflow: hidden;
+      font-size: 0.75rem;
+      color: #666;
+    }
+
+    .time-mark {
+      position: absolute;
+      transform: translateX(-50%);
+    }
+
+    .tooltip {
+      position: absolute;
+      background: rgba(0,0,0,0.9);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 8px;
+      padding: 8px 14px;
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 600;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      z-index: 100;
+    }
+
+    .tooltip.visible { opacity: 1; }
+
+    .status {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: #666;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff4444;
+      box-shadow: 0 0 10px #ff4444;
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.connected {
+      background: #00ff88;
+      box-shadow: 0 0 10px #00ff88;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Previous Outcomes Section */
+    .outcomes-section {
+      margin-top: 20px;
+      background: rgba(10,10,20,0.8);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 12px 16px;
+    }
+
+    .outcomes-header {
+      color: #666;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+    }
+
+    .outcomes-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .outcome-item {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      background: rgba(255,255,255,0.05);
+      border-radius: 6px;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s;
+    }
+
+    .outcome-item:hover {
+      background: rgba(255,255,255,0.15);
+    }
+
+    .outcome-tooltip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.95);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      padding: 8px 12px;
+      white-space: nowrap;
+      font-size: 0.75rem;
+      color: #fff;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      z-index: 50;
+      margin-bottom: 5px;
+    }
+
+    .outcome-item:hover .outcome-tooltip {
+      opacity: 1;
+    }
+
+    .outcome-tooltip .otl-beat { color: #ffcc00; }
+    .outcome-tooltip .otl-finish { color: #fff; }
+    .outcome-tooltip .otl-result { margin-top: 4px; }
+    .outcome-tooltip .otl-result.up { color: #00ff88; }
+    .outcome-tooltip .otl-result.down { color: #ff4466; }
+
+    /* Data Feed */
+    .data-feed {
+      margin-top: 20px;
+      background: rgba(10,10,20,0.8);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: 'Monaco', 'Consolas', monospace;
+      font-size: 0.8rem;
+    }
+
+    .data-feed-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      color: #666;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      position: sticky;
+      top: 0;
+      background: rgba(10,10,20,0.95);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .ws-status { color: #00ff88; }
+    .ws-status.stale { color: #ff4466; }
+
+    .data-row {
+      display: flex;
+      padding: 8px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      animation: fadeIn 0.3s ease;
+    }
+
+    .data-row:hover { background: rgba(255,255,255,0.05); }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .data-time { color: #888; width: 90px; flex-shrink: 0; }
+    .data-price { color: #fff; font-weight: 600; margin-left: 20px; width: 110px; }
+    .data-price.up { color: #00ff88; }
+    .data-price.down { color: #ff4466; }
+    .data-change { margin-left: auto; font-size: 0.75rem; width: 70px; text-align: right; }
+    .data-change.up { color: #00ff88; }
+    .data-change.down { color: #ff4466; }
+
+    /* Bet Panel - Polymarket Style */
+    .bet-panel {
+      background: #1a1d29;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 16px;
+    }
+
+    .bet-tabs {
+      display: flex;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .bet-tab {
+      padding: 8px 16px;
+      background: none;
+      border: none;
+      color: #666;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .bet-tab.active {
+      color: #fff;
+    }
+
+    .bet-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 16px;
+      right: 16px;
+      height: 2px;
+      background: #4a9eff;
+    }
+
+    .bet-order-type {
+      margin-left: auto;
+      position: relative;
+    }
+
+    .order-type-btn {
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .order-type-btn:hover { color: #fff; }
+
+    .order-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: #252836;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 4px;
+      display: none;
+      z-index: 100;
+    }
+
+    .order-dropdown.show { display: block; }
+
+    .order-option {
+      padding: 8px 16px;
+      color: #888;
+      cursor: pointer;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .order-option:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .order-option.selected { color: #fff; }
+
+    .outcome-buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .outcome-btn {
+      flex: 1;
+      padding: 14px 20px;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .outcome-btn.yes {
+      background: rgba(68, 183, 123, 0.15);
+      border: 2px solid rgba(68, 183, 123, 0.4);
+      color: #44b77b;
+    }
+
+    .outcome-btn.yes:hover {
+      background: rgba(68, 183, 123, 0.25);
+      border-color: #44b77b;
+    }
+
+    .outcome-btn.yes.selected {
+      background: #44b77b;
+      border-color: #44b77b;
+      color: #fff;
+    }
+
+    .outcome-btn.no {
+      background: rgba(100, 116, 139, 0.15);
+      border: 2px solid rgba(100, 116, 139, 0.4);
+      color: #64748b;
+    }
+
+    .outcome-btn.no:hover {
+      background: rgba(100, 116, 139, 0.25);
+      border-color: #64748b;
+    }
+
+    .outcome-btn.no.selected {
+      background: #64748b;
+      border-color: #64748b;
+      color: #fff;
+    }
+
+    .outcome-price {
+      font-size: 1rem;
+      opacity: 0.9;
+    }
+
+    .bet-section {
+      margin-bottom: 16px;
+    }
+
+    .bet-label {
+      color: #888;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+
+    .limit-price-control {
+      display: flex;
+      align-items: center;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .limit-btn {
+      width: 44px;
+      height: 44px;
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .limit-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+    .limit-value {
+      flex: 1;
+      text-align: center;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .shares-input-wrap {
+      position: relative;
+    }
+
+    .shares-input {
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 1.2rem;
+      font-weight: 600;
+      text-align: right;
+      outline: none;
+    }
+
+    .shares-input:focus { border-color: rgba(255,255,255,0.3); }
+    .shares-input::placeholder { color: #555; }
+
+    .quick-buttons {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .quick-btn {
+      flex: 1;
+      padding: 8px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      color: #888;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .quick-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+    .quick-btn.accent { color: #4a9eff; border-color: rgba(74,158,255,0.3); }
+    .quick-btn.accent:hover { background: rgba(74,158,255,0.15); }
+
+    .expiry-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .expiry-label { color: #4a9eff; font-size: 0.9rem; }
+
+    .toggle-switch {
+      width: 44px;
+      height: 24px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 12px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-switch.active { background: #4a9eff; }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle-switch.active::after { transform: translateX(20px); }
+
+    .bet-summary {
+      padding: 12px 0;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .summary-label { color: #888; font-size: 0.9rem; }
+    .summary-value { color: #4a9eff; font-size: 1rem; font-weight: 600; }
+
+    .to-win-row .summary-label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .info-icon {
+      width: 14px;
+      height: 14px;
+      border: 1px solid #666;
+      border-radius: 50%;
+      font-size: 0.65rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #666;
+      cursor: help;
+    }
+
+    .to-win-value {
+      color: #44b77b;
+      font-size: 1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .trade-btn {
+      width: 100%;
+      padding: 14px;
+      margin-top: 12px;
+      background: #4a9eff;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .trade-btn:hover {
+      background: #5aabff;
+      transform: translateY(-1px);
+    }
+
+    .trade-btn:active { transform: translateY(0); }
+
+    .limit-section { display: none; }
+    .limit-section.show { display: block; }
+    .market-section { display: none; }
+    .market-section.show { display: block; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+    .top-nav {
+      width: 95%;
+      max-width: 1400px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .top-nav .nav-logo {
+      font-family: 'SF Mono', 'Consolas', monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .top-nav .nav-logo span {
+      color: #4a9eff;
+    }
+
+    .top-nav .nav-back {
+      color: #666;
+      text-decoration: none;
+      font-size: 0.8rem;
+      letter-spacing: 1px;
+      transition: color 0.2s;
+    }
+
+    .top-nav .nav-back:hover { color: #fff; }
+
+    .top-nav .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #userInfo {
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #userAvatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    #userName {
+      color: #fff;
+      font-size: 0.85rem;
+    }
+
+    #userBalanceDisplay {
+      color: #4a9eff;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    #logoutBtn {
+      background: none;
+      border: 1px solid #333;
+      color: #666;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      margin-left: 4px;
+      transition: all 0.2s;
+    }
+
+    #logoutBtn:hover {
+      color: #fff;
+      border-color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="top-nav">
+    <a href="index.html" class="nav-logo">CEX <span>Mid Price</span></a>
+    <div class="nav-right">
+      <a href="index.html" class="nav-back">&larr; Home</a>
+      <div id="telegramLoginBtn"></div>
+      <div id="userInfo">
+        <img id="userAvatar" src="" alt="">
+        <span id="userName"></span>
+        <span id="userBalanceDisplay"></span>
+        <button id="logoutBtn">Logout</button>
+      </div>
+    </div>
+  </div>
+  <div class="main-layout">
+    <div class="left-panel">
+      <div class="header">
+        <div class="btc-logo">₿</div>
+        <div class="header-main">
+          <div class="header-top">
+            <div class="event-title">Bitcoin Up or Down</div>
+            <div class="header-icons">
+              <span class="header-icon">⛓</span>
+              <span class="header-icon">🔖</span>
+            </div>
+          </div>
+          <div class="event-time" id="eventTime">January 22, 3:45-4PM ET</div>
+          <div class="price-row">
+            <div class="price-block">
+              <div class="price-label">Price to Beat</div>
+              <div class="price-value beat" id="priceToBeat">$--</div>
+            </div>
+            <div class="price-block">
+              <div class="price-label-with-diff">
+                <span class="price-label">Current Price</span>
+                <span class="price-diff-small" id="priceDiff"></span>
+              </div>
+              <div class="price-value current" id="price">$--</div>
+            </div>
+            <div class="countdown-block">
+              <div class="countdown-unit">
+                <div class="countdown-value" id="countdownMins">--</div>
+                <div class="countdown-label">Mins</div>
+              </div>
+              <div class="countdown-unit">
+                <div class="countdown-value" id="countdownSecs">--</div>
+                <div class="countdown-label">Secs</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-container" id="chartContainer">
+        <div class="status">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">Connecting...</span>
+        </div>
+        <div class="y-axis">
+          <div class="y-label max" id="maxPrice">--</div>
+          <div class="y-label current" id="currentPriceLabel">--</div>
+          <div class="y-label min" id="minPrice">--</div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chart"></canvas>
+          <div class="tooltip" id="tooltip"></div>
+        </div>
+        <div class="time-axis" id="timeAxis"></div>
+      </div>
+
+      <div class="outcomes-section">
+        <div class="outcomes-header">Previous Outcomes</div>
+        <div class="outcomes-list" id="outcomesList"></div>
+      </div>
+
+      <div class="data-feed" id="dataFeed">
+        <div class="data-feed-header">
+          <span>Chart Data (1s intervals)</span>
+          <span class="ws-status" id="wsStatus">--</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="bet-panel">
+        <!-- Tabs: Buy / Sell + Order Type Dropdown -->
+        <div class="bet-tabs">
+          <button class="bet-tab active" id="tabBuy">Buy</button>
+          <button class="bet-tab" id="tabSell">Sell</button>
+          <div class="bet-order-type">
+            <button class="order-type-btn" id="orderTypeBtn">
+              <span id="orderTypeLabel">Market</span>
+              <span>▾</span>
+            </button>
+            <div class="order-dropdown" id="orderDropdown">
+              <div class="order-option selected" data-type="market">Market</div>
+              <div class="order-option" data-type="limit">Limit</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Yes / No Outcome Buttons -->
+        <div class="outcome-buttons">
+          <button class="outcome-btn yes selected" id="btnYes">
+            Yes <span class="outcome-price" id="yesPrice">50¢</span>
+          </button>
+          <button class="outcome-btn no" id="btnNo">
+            No <span class="outcome-price" id="noPrice">50¢</span>
+          </button>
+        </div>
+
+        <!-- Limit Price (only for Limit orders) -->
+        <div class="bet-section limit-section" id="limitSection">
+          <div class="bet-label">Limit Price</div>
+          <div class="limit-price-control">
+            <button class="limit-btn" id="limitMinus">−</button>
+            <div class="limit-value"><span id="limitValue">50</span>¢</div>
+            <button class="limit-btn" id="limitPlus">+</button>
+          </div>
+        </div>
+
+        <!-- Shares Input -->
+        <div class="bet-section">
+          <div class="bet-label">Shares</div>
+          <div class="shares-input-wrap">
+            <input type="number" class="shares-input" id="sharesInput" placeholder="0" value="">
+          </div>
+          <!-- Quick buttons for Limit orders -->
+          <div class="quick-buttons limit-section" id="limitQuickBtns">
+            <button class="quick-btn" data-delta="-100">-100</button>
+            <button class="quick-btn" data-delta="-10">-10</button>
+            <button class="quick-btn" data-delta="10">+10</button>
+            <button class="quick-btn" data-delta="100">+100</button>
+            <button class="quick-btn accent" data-delta="200">+200</button>
+          </div>
+          <!-- Quick buttons for Market orders -->
+          <div class="quick-buttons market-section show" id="marketQuickBtns">
+            <button class="quick-btn" data-pct="25">25%</button>
+            <button class="quick-btn" data-pct="50">50%</button>
+            <button class="quick-btn" data-pct="100">Max</button>
+          </div>
+        </div>
+
+        <!-- Expiration Toggle (only for Limit) -->
+        <div class="expiry-row limit-section" id="expirySection">
+          <span class="expiry-label">Set Expiration</span>
+          <div class="toggle-switch" id="expiryToggle"></div>
+        </div>
+
+        <!-- Summary -->
+        <div class="bet-summary">
+          <div class="summary-row">
+            <span class="summary-label">Total</span>
+            <span class="summary-value" id="totalValue">$0</span>
+          </div>
+          <div class="summary-row to-win-row">
+            <span class="summary-label">To win <span class="info-icon">i</span></span>
+            <span class="to-win-value">💵 <span id="toWinValue">$0</span></span>
+          </div>
+        </div>
+
+        <button class="trade-btn" id="tradeBtn">Trade</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================
+    // CONFIGURATION
+    // ============================================
+    const CHART_POINTS = 30;
+    const SAMPLE_INTERVAL = 1000;
+    const DOT_POSITION = 0.75;
+    const CHART_MARGIN = 0.10;
+
+    // ============================================
+    // STATE
+    // ============================================
+    const chartData = [];
+    let currentPrice = null;
+    let lastSampleTime = null;
+    let wsConnected = false;
+    let lastWsTime = 0;
+    let wigglePhase = 0;
+    let priceToBeat = null;
+    let lastMinuteFlash = -1;
+    let hoverX = null;
+    const outcomes = []; // { priceToBeat, outcome, isUp }
+
+    // Bet state
+    let betSide = 'buy'; // 'buy' or 'sell'
+    let betOutcome = 'yes'; // 'yes' or 'no'
+    let orderType = 'market'; // 'market' or 'limit'
+    let limitPrice = 50; // cents
+    let shares = 0;
+    let expiryEnabled = false;
+    // ============================================
+    // AUTH STATE
+    // ============================================
+    let currentUser = null;
+    let authToken = null;
+    let wsConnection = null;
+
+    function getUserBalance() {
+      return currentUser ? parseFloat(currentUser.balance) : 0;
+    }
+
+    function loadSession() {
+      const saved = localStorage.getItem('tg_session');
+      if (saved) {
+        try {
+          const session = JSON.parse(saved);
+          currentUser = session.user;
+          authToken = session.token;
+          updateAuthUI();
+          return true;
+        } catch (e) {
+          localStorage.removeItem('tg_session');
+        }
+      }
+      return false;
+    }
+
+    // Called by Telegram Login Widget
+    function onTelegramAuth(user) {
+      fetch('http://localhost:8080/api/auth/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user)
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          console.error('Auth failed:', data.error);
+          return;
+        }
+        currentUser = data.user;
+        authToken = data.token;
+
+        localStorage.setItem('tg_session', JSON.stringify({
+          user: data.user,
+          token: data.token,
+          userId: user.id,
+          authDate: user.auth_date
+        }));
+
+        updateAuthUI();
+        authenticateWebSocket();
+      })
+      .catch(err => console.error('Auth request failed:', err));
+    }
+
+    function updateAuthUI() {
+      const loginBtn = document.getElementById('telegramLoginBtn');
+      const userInfo = document.getElementById('userInfo');
+
+      if (currentUser) {
+        loginBtn.style.display = 'none';
+        userInfo.style.display = 'flex';
+        document.getElementById('userName').textContent = currentUser.first_name;
+        document.getElementById('userBalanceDisplay').textContent = '$' + parseFloat(currentUser.balance).toFixed(2);
+        if (currentUser.photo_url) {
+          document.getElementById('userAvatar').src = currentUser.photo_url;
+          document.getElementById('userAvatar').style.display = '';
+        } else {
+          document.getElementById('userAvatar').style.display = 'none';
+        }
+      } else {
+        loginBtn.style.display = '';
+        userInfo.style.display = 'none';
+      }
+    }
+
+    function authenticateWebSocket() {
+      if (!wsConnection || wsConnection.readyState !== WebSocket.OPEN) return;
+      if (!authToken || !currentUser) return;
+
+      const session = JSON.parse(localStorage.getItem('tg_session'));
+      wsConnection.send(JSON.stringify({
+        type: 'auth',
+        token: authToken,
+        userId: session.userId,
+        authDate: session.authDate
+      }));
+    }
+
+    function logout() {
+      currentUser = null;
+      authToken = null;
+      localStorage.removeItem('tg_session');
+      updateAuthUI();
+    }
+
+    // ============================================
+    // DOM ELEMENTS
+    // ============================================
+    const canvas = document.getElementById('chart');
+    const ctx = canvas.getContext('2d');
+    const tooltip = document.getElementById('tooltip');
+    const priceEl = document.getElementById('price');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const timeAxis = document.getElementById('timeAxis');
+    const dataFeed = document.getElementById('dataFeed');
+    const maxPriceEl = document.getElementById('maxPrice');
+    const minPriceEl = document.getElementById('minPrice');
+    const currentPriceLabel = document.getElementById('currentPriceLabel');
+    const wsStatusEl = document.getElementById('wsStatus');
+    const priceToBeatEl = document.getElementById('priceToBeat');
+    const priceDiffEl = document.getElementById('priceDiff');
+    const chartContainer = document.getElementById('chartContainer');
+    const outcomesList = document.getElementById('outcomesList');
+    const eventTimeEl = document.getElementById('eventTime');
+    const countdownMinsEl = document.getElementById('countdownMins');
+    const countdownSecsEl = document.getElementById('countdownSecs');
+
+    // Bet elements
+    const tabBuy = document.getElementById('tabBuy');
+    const tabSell = document.getElementById('tabSell');
+    const orderTypeBtn = document.getElementById('orderTypeBtn');
+    const orderTypeLabel = document.getElementById('orderTypeLabel');
+    const orderDropdown = document.getElementById('orderDropdown');
+    const btnYes = document.getElementById('btnYes');
+    const btnNo = document.getElementById('btnNo');
+    const yesPrice = document.getElementById('yesPrice');
+    const noPrice = document.getElementById('noPrice');
+    const limitSection = document.getElementById('limitSection');
+    const limitMinus = document.getElementById('limitMinus');
+    const limitPlus = document.getElementById('limitPlus');
+    const limitValueEl = document.getElementById('limitValue');
+    const sharesInput = document.getElementById('sharesInput');
+    const limitQuickBtns = document.getElementById('limitQuickBtns');
+    const marketQuickBtns = document.getElementById('marketQuickBtns');
+    const expirySection = document.getElementById('expirySection');
+    const expiryToggle = document.getElementById('expiryToggle');
+    const totalValue = document.getElementById('totalValue');
+    const toWinValue = document.getElementById('toWinValue');
+    const tradeBtn = document.getElementById('tradeBtn');
+
+    // ============================================
+    // BET PANEL HANDLERS
+    // ============================================
+    function updateBetUI() {
+      // Update tabs
+      tabBuy.classList.toggle('active', betSide === 'buy');
+      tabSell.classList.toggle('active', betSide === 'sell');
+
+      // Update outcome buttons
+      btnYes.classList.toggle('selected', betOutcome === 'yes');
+      btnNo.classList.toggle('selected', betOutcome === 'no');
+
+      // Update order type display
+      orderTypeLabel.textContent = orderType === 'market' ? 'Market' : 'Limit';
+
+      // Show/hide limit sections
+      const showLimit = orderType === 'limit';
+      document.querySelectorAll('.limit-section').forEach(el => {
+        el.classList.toggle('show', showLimit);
+      });
+      document.querySelectorAll('.market-section').forEach(el => {
+        el.classList.toggle('show', !showLimit);
+      });
+
+      // Update limit value
+      limitValueEl.textContent = limitPrice;
+
+      // Update expiry toggle
+      expiryToggle.classList.toggle('active', expiryEnabled);
+
+      // Calculate prices (mock: Yes + No = 100¢)
+      const yesP = 50; // In real app, this comes from market
+      const noP = 100 - yesP;
+      yesPrice.textContent = yesP + '¢';
+      noPrice.textContent = noP + '¢';
+
+      // Calculate total and potential win
+      const pricePerShare = orderType === 'limit' ? limitPrice : (betOutcome === 'yes' ? yesP : noP);
+      const total = (shares * pricePerShare / 100).toFixed(2);
+      const potentialWin = (shares * (100 - pricePerShare) / 100).toFixed(2);
+
+      totalValue.textContent = '$' + total;
+      toWinValue.textContent = '$' + potentialWin;
+    }
+
+    // Tab handlers
+    tabBuy.addEventListener('click', () => { betSide = 'buy'; updateBetUI(); });
+    tabSell.addEventListener('click', () => { betSide = 'sell'; updateBetUI(); });
+
+    // Outcome handlers
+    btnYes.addEventListener('click', () => { betOutcome = 'yes'; updateBetUI(); });
+    btnNo.addEventListener('click', () => { betOutcome = 'no'; updateBetUI(); });
+
+    // Order type dropdown
+    orderTypeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      orderDropdown.classList.toggle('show');
+    });
+
+    document.addEventListener('click', () => {
+      orderDropdown.classList.remove('show');
+    });
+
+    orderDropdown.querySelectorAll('.order-option').forEach(opt => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        orderType = opt.dataset.type;
+        orderDropdown.querySelectorAll('.order-option').forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+        orderDropdown.classList.remove('show');
+        updateBetUI();
+      });
+    });
+
+    // Limit price controls
+    limitMinus.addEventListener('click', () => {
+      limitPrice = Math.max(1, limitPrice - 1);
+      updateBetUI();
+    });
+
+    limitPlus.addEventListener('click', () => {
+      limitPrice = Math.min(99, limitPrice + 1);
+      updateBetUI();
+    });
+
+    // Shares input
+    sharesInput.addEventListener('input', (e) => {
+      shares = parseInt(e.target.value) || 0;
+      updateBetUI();
+    });
+
+    // Quick buttons for limit
+    limitQuickBtns.querySelectorAll('.quick-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const delta = parseInt(btn.dataset.delta);
+        shares = Math.max(0, shares + delta);
+        sharesInput.value = shares || '';
+        updateBetUI();
+      });
+    });
+
+    // Quick buttons for market (percentage of balance)
+    marketQuickBtns.querySelectorAll('.quick-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pct = parseInt(btn.dataset.pct);
+        const pricePerShare = betOutcome === 'yes' ? 50 : 50; // Mock price
+        const maxShares = Math.floor((getUserBalance() * 100) / pricePerShare);
+        shares = Math.floor(maxShares * pct / 100);
+        sharesInput.value = shares || '';
+        updateBetUI();
+      });
+    });
+
+    // Expiry toggle
+    expiryToggle.addEventListener('click', () => {
+      expiryEnabled = !expiryEnabled;
+      updateBetUI();
+    });
+
+    // Trade button
+    tradeBtn.addEventListener('click', () => {
+      if (shares <= 0) return;
+
+      if (!currentUser) {
+        tradeBtn.textContent = 'Login with Telegram to trade';
+        tradeBtn.style.background = '#ef4444';
+        setTimeout(() => {
+          tradeBtn.textContent = 'Trade';
+          tradeBtn.style.background = '#4a9eff';
+        }, 2000);
+        return;
+      }
+
+      if (!wsConnection || wsConnection.readyState !== WebSocket.OPEN) return;
+
+      wsConnection.send(JSON.stringify({
+        type: 'place_bet',
+        direction: betOutcome,
+        amount: shares,
+        side: betSide
+      }));
+    });
+
+    // Initialize bet UI
+    updateBetUI();
+
+    // ============================================
+    // UTILITIES
+    // ============================================
+    function resize() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = 280;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    function formatTime(ts) {
+      const d = new Date(ts);
+      return d.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    }
+
+    function formatPrice(p) {
+      return parseFloat(p).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    // ============================================
+    // PRICE DIFFERENCE DISPLAY
+    // ============================================
+    function updatePriceDiff() {
+      if (priceToBeat === null || currentPrice === null) {
+        priceDiffEl.textContent = '';
+        priceEl.className = 'price-value current';
+        return;
+      }
+
+      const diff = currentPrice - priceToBeat;
+      const isUp = diff >= 0;
+      const arrow = isUp ? '▲' : '▼';
+      const sign = isUp ? '+' : '-';
+
+      priceDiffEl.innerHTML = `${arrow} ${sign}$${Math.abs(diff).toFixed(0)}`;
+      priceDiffEl.className = 'price-diff-small ' + (isUp ? 'up' : 'down');
+      priceEl.className = 'price-value current ' + (isUp ? 'up' : '');
+    }
+
+    function updateCountdown() {
+      const now = new Date();
+      const secsToNextMin = 60 - now.getSeconds();
+      const secsDisplay = secsToNextMin === 60 ? 0 : secsToNextMin;
+
+      // Show 00:XX countdown to next minute (when price to beat updates)
+      countdownMinsEl.textContent = '00';
+      countdownSecsEl.textContent = String(secsDisplay).padStart(2, '0');
+    }
+
+    function updateEventTime() {
+      const now = new Date();
+      const mins = now.getMinutes();
+      const startMin = Math.floor(mins / 15) * 15;
+      const endMin = startMin + 15;
+
+      const month = now.toLocaleString('en-US', { month: 'long' });
+      const day = now.getDate();
+      const hour = now.getHours();
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const h12 = hour % 12 || 12;
+
+      const startStr = `${h12}:${String(startMin).padStart(2, '0')}`;
+      const endStr = endMin === 60 ? `${(h12 % 12) + 1}:00` : `${h12}:${String(endMin).padStart(2, '0')}`;
+
+      eventTimeEl.textContent = `${month} ${day}, ${startStr}-${endStr}${ampm} ET`;
+    }
+
+    // ============================================
+    // OUTCOMES DISPLAY
+    // ============================================
+    function addOutcome(beatPrice, outcomePrice) {
+      const isUp = outcomePrice >= beatPrice;
+      outcomes.push({
+        priceToBeat: beatPrice,
+        outcome: outcomePrice,
+        isUp: isUp
+      });
+
+      // Keep max 60 outcomes
+      while (outcomes.length > 60) {
+        outcomes.shift();
+      }
+
+      renderOutcomes();
+    }
+
+    function renderOutcomes() {
+      outcomesList.innerHTML = outcomes.map((o, i) => {
+        const emoji = o.isUp ? '📈' : '📉';
+        const diff = o.outcome - o.priceToBeat;
+        const sign = diff >= 0 ? '+' : '-';
+        const resultClass = o.isUp ? 'up' : 'down';
+        return `
+          <div class="outcome-item">
+            ${emoji}
+            <div class="outcome-tooltip">
+              <div>Price to beat: <span class="otl-beat">$${formatPrice(o.priceToBeat)}</span></div>
+              <div>Finish price: <span class="otl-finish">$${formatPrice(o.outcome)}</span></div>
+              <div class="otl-result ${resultClass}">Difference: ${sign}$${Math.abs(diff).toFixed(2)}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ============================================
+    // MINUTE FLASH & PRICE TO BEAT
+    // ============================================
+    function checkMinuteFlash() {
+      const now = new Date();
+      const currentMinute = now.getMinutes();
+      const currentSecond = now.getSeconds();
+
+      // Update countdown every call
+      updateCountdown();
+
+      if (currentSecond === 0 && currentMinute !== lastMinuteFlash) {
+        lastMinuteFlash = currentMinute;
+
+        // Record outcome if we had a previous price to beat
+        if (priceToBeat !== null && currentPrice !== null) {
+          addOutcome(priceToBeat, currentPrice);
+        }
+
+        // Update price to beat
+        if (currentPrice !== null) {
+          priceToBeat = currentPrice;
+          priceToBeatEl.textContent = '$' + formatPrice(priceToBeat);
+        }
+
+        // Update event time display
+        updateEventTime();
+
+        // Flash effect
+        chartContainer.classList.add('flash');
+        setTimeout(() => chartContainer.classList.remove('flash'), 500);
+      }
+    }
+
+    // ============================================
+    // SAMPLING
+    // ============================================
+    function samplePrice() {
+      if (currentPrice === null) return;
+
+      const now = Date.now();
+      const prevPrice = chartData.length > 0 ? chartData[chartData.length - 1].price : null;
+
+      chartData.push({ time: now, price: currentPrice });
+
+      while (chartData.length > CHART_POINTS) {
+        chartData.shift();
+      }
+
+      lastSampleTime = now;
+      addDataRow(now, currentPrice, prevPrice);
+    }
+
+    function startSampling() {
+      const now = Date.now();
+      const msToNextSecond = 1000 - (now % 1000);
+
+      setTimeout(() => {
+        samplePrice();
+        setInterval(samplePrice, SAMPLE_INTERVAL);
+      }, msToNextSecond);
+    }
+
+    // ============================================
+    // DATA FEED
+    // ============================================
+    function addDataRow(time, price, prevPrice) {
+      const row = document.createElement('div');
+      row.className = 'data-row';
+
+      const change = prevPrice ? price - prevPrice : 0;
+      const changeClass = change >= 0 ? 'up' : 'down';
+      const changeSign = change >= 0 ? '+' : '';
+
+      row.innerHTML = `
+        <span class="data-time">${formatTime(time)}</span>
+        <span class="data-price ${changeClass}">$${formatPrice(price)}</span>
+        <span class="data-change ${changeClass}">${changeSign}${change.toFixed(2)}</span>
+      `;
+
+      const header = dataFeed.querySelector('.data-feed-header');
+      header.after(row);
+
+      const rows = dataFeed.querySelectorAll('.data-row');
+      if (rows.length > 50) {
+        rows[rows.length - 1].remove();
+      }
+    }
+
+    // ============================================
+    // TIME AXIS
+    // ============================================
+    function updateTimeAxis(now) {
+      const w = canvas.width;
+      const padding = 20;
+      const chartWidth = w - padding * 2;
+      const dotX = padding + chartWidth * DOT_POSITION;
+      const pxPerMs = chartWidth / (CHART_POINTS * SAMPLE_INTERVAL);
+
+      const windowMs = CHART_POINTS * SAMPLE_INTERVAL;
+      const windowStart = now - windowMs * DOT_POSITION;
+      const windowEnd = now + windowMs * (1 - DOT_POSITION);
+
+      const firstMark = Math.ceil(windowStart / 15000) * 15000;
+      let html = '';
+
+      for (let t = firstMark; t <= windowEnd; t += 15000) {
+        const x = dotX - (now - t) * pxPerMs;
+        if (x >= 0 && x <= w) {
+          const opacity = t > now ? 0.3 : 0.8;
+          html += `<span class="time-mark" style="left:${x}px;opacity:${opacity}">${formatTime(t)}</span>`;
+        }
+      }
+
+      timeAxis.innerHTML = html;
+    }
+
+    // ============================================
+    // CHART RENDERING
+    // ============================================
+    function draw(now) {
+      const w = canvas.width;
+      const h = canvas.height;
+      const padding = 20;
+      const chartWidth = w - padding * 2;
+      const chartHeight = h - padding * 2;
+
+      ctx.clearRect(0, 0, w, h);
+
+      if (chartData.length < 2 || currentPrice === null) return;
+
+      const dotX = padding + chartWidth * DOT_POSITION;
+      const pxPerMs = chartWidth / (CHART_POINTS * SAMPLE_INTERVAL);
+
+      // Include currentPrice in min/max calculation (exactly last 30 values + current)
+      const allPrices = [...chartData.map(d => d.price), currentPrice];
+      const dataMin = Math.min(...allPrices);
+      const dataMax = Math.max(...allPrices);
+      const dataRange = dataMax - dataMin;
+
+      // Calculate margin: always 10% of data range
+      // If all prices identical (range=0), use tiny % of price to show the line
+      const margin = dataRange > 0 ? dataRange * 0.1 : currentPrice * 0.0001;
+
+      let chartMax = Math.round(dataMax + margin);
+      let chartMin = Math.round(dataMin - margin);
+      let chartRange = chartMax - chartMin;
+
+      // Handle edge case where rounding collapses the range
+      if (chartRange < 1) {
+        chartMax = Math.ceil(dataMax + margin);
+        chartMin = Math.floor(dataMin - margin);
+        chartRange = Math.max(chartMax - chartMin, 1);
+      }
+
+      // Update Y-axis labels (whole numbers)
+      maxPriceEl.textContent = '$' + chartMax.toLocaleString();
+      minPriceEl.textContent = '$' + chartMin.toLocaleString();
+
+      // Hide the current price label from Y-axis (we'll draw it on canvas)
+      currentPriceLabel.style.display = 'none';
+
+      const priceToY = (p) => {
+        const normalized = (p - chartMin) / chartRange;
+        return (h - padding) - normalized * chartHeight;
+      };
+
+      const points = chartData.map(d => ({
+        x: dotX - (now - d.time) * pxPerMs,
+        y: priceToY(d.price),
+        price: d.price,
+        time: d.time
+      }));
+
+      // Smoother wiggle
+      wigglePhase += 0.08;
+      const wiggle = Math.sin(wigglePhase) * 1.2;
+      points.push({
+        x: dotX,
+        y: priceToY(currentPrice) + wiggle,
+        price: currentPrice,
+        time: now,
+        isCurrent: true
+      });
+
+      const prevPrice = chartData.length > 0 ? chartData[chartData.length - 1].price : currentPrice;
+      const isUp = currentPrice >= prevPrice;
+      const mainColor = isUp ? '#00ff88' : '#ff4466';
+      const glowColor = isUp ? 'rgba(0,255,136,' : 'rgba(255,68,102,';
+
+      // Grid
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 5; i++) {
+        const y = padding + chartHeight * (i / 4);
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(w - padding, y);
+        ctx.stroke();
+      }
+
+      // 75% vertical line
+      ctx.beginPath();
+      ctx.moveTo(dotX, padding);
+      ctx.lineTo(dotX, h - padding);
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctx.stroke();
+
+      // Horizontal target line (price to beat)
+      if (priceToBeat !== null) {
+        const targetY = priceToY(priceToBeat);
+        if (targetY >= padding && targetY <= h - padding) {
+          ctx.beginPath();
+          ctx.setLineDash([8, 4]);
+          ctx.moveTo(padding, targetY);
+          ctx.lineTo(w - padding, targetY);
+          ctx.strokeStyle = 'rgba(255, 204, 0, 0.5)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.lineWidth = 1;
+        }
+      }
+
+      const visible = points.filter(p => p.x >= padding - 20 && p.x <= w - padding + 20);
+      if (visible.length < 2) return;
+
+      // Catmull-Rom spline with more segments for smoother curve
+      function catmullRomSpline(p0, p1, p2, p3, t) {
+        const t2 = t * t;
+        const t3 = t2 * t;
+        return {
+          x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+          y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
+        };
+      }
+
+      const curvePoints = [];
+      const segments = 20; // More segments = smoother
+
+      for (let i = 0; i < visible.length - 1; i++) {
+        const p0 = visible[Math.max(0, i - 1)];
+        const p1 = visible[i];
+        const p2 = visible[i + 1];
+        const p3 = visible[Math.min(visible.length - 1, i + 2)];
+
+        for (let j = 0; j < segments; j++) {
+          const t = j / segments;
+          curvePoints.push(catmullRomSpline(p0, p1, p2, p3, t));
+        }
+      }
+      curvePoints.push(visible[visible.length - 1]);
+
+      // Gradient fill
+      const gradient = ctx.createLinearGradient(0, padding, 0, h - padding);
+      gradient.addColorStop(0, glowColor + '0.4)');
+      gradient.addColorStop(0.5, glowColor + '0.1)');
+      gradient.addColorStop(1, glowColor + '0)');
+
+      ctx.beginPath();
+      ctx.moveTo(curvePoints[0].x, h - padding);
+      ctx.lineTo(curvePoints[0].x, curvePoints[0].y);
+      for (let i = 1; i < curvePoints.length; i++) {
+        ctx.lineTo(curvePoints[i].x, curvePoints[i].y);
+      }
+      ctx.lineTo(curvePoints[curvePoints.length - 1].x, h - padding);
+      ctx.closePath();
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Draw line with glow
+      ctx.beginPath();
+      ctx.moveTo(curvePoints[0].x, curvePoints[0].y);
+      for (let i = 1; i < curvePoints.length; i++) {
+        ctx.lineTo(curvePoints[i].x, curvePoints[i].y);
+      }
+
+      ctx.shadowColor = mainColor;
+      ctx.shadowBlur = 20;
+      ctx.strokeStyle = mainColor;
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Draw node dots
+      for (let i = 0; i < visible.length; i++) {
+        const p = visible[i];
+        if (p.isCurrent) continue;
+
+        const curveIdx = i * segments;
+        const curveP = curvePoints[Math.min(curveIdx, curvePoints.length - 1)];
+
+        ctx.beginPath();
+        ctx.arc(curveP.x, curveP.y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fill();
+      }
+
+      // Draw current dot
+      const currPoint = curvePoints[curvePoints.length - 1];
+      if (currPoint) {
+        ctx.beginPath();
+        ctx.arc(currPoint.x, currPoint.y, 12, 0, Math.PI * 2);
+        ctx.fillStyle = glowColor + '0.3)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(currPoint.x, currPoint.y, 7, 0, Math.PI * 2);
+        ctx.fillStyle = mainColor;
+        ctx.shadowColor = mainColor;
+        ctx.shadowBlur = 25;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(currPoint.x, currPoint.y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Draw current price label to the right of the dot
+        ctx.font = 'bold 12px Segoe UI, system-ui, sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 4;
+        ctx.fillText('$' + formatPrice(currentPrice), currPoint.x + 18, currPoint.y);
+        ctx.shadowBlur = 0;
+      }
+
+      // Hover line
+      if (hoverX !== null) {
+        ctx.beginPath();
+        ctx.moveTo(hoverX, padding);
+        ctx.lineTo(hoverX, h - padding);
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      canvas._points = visible;
+      canvas._curvePoints = curvePoints;
+      canvas._segments = segments;
+      canvas._chartBounds = { padding, chartHeight, chartMin, chartRange, pxPerMs, dotX, now };
+    }
+
+    // ============================================
+    // HOVER
+    // ============================================
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      hoverX = x;
+
+      if (!canvas._curvePoints || canvas._curvePoints.length < 2) return;
+      if (!canvas._chartBounds) return;
+
+      const { padding, chartHeight, chartMin, chartRange, pxPerMs, dotX, now } = canvas._chartBounds;
+
+      // Find the curve point closest to this x
+      let closestCurve = null;
+      let minDist = Infinity;
+      for (const p of canvas._curvePoints) {
+        const dist = Math.abs(p.x - x);
+        if (dist < minDist) {
+          minDist = dist;
+          closestCurve = p;
+        }
+      }
+
+      if (closestCurve && x >= padding && x <= canvas.width - padding) {
+        // Calculate price from y position
+        const normalized = (canvas.height - padding - closestCurve.y) / chartHeight;
+        const price = chartMin + normalized * chartRange;
+
+        // Calculate time from x position
+        const msFromNow = (dotX - x) / pxPerMs;
+        const time = now - msFromNow;
+
+        tooltip.innerHTML = `<div>$${formatPrice(price)}</div><div style="font-size:0.7rem;color:#888">${formatTime(time)}</div>`;
+        tooltip.classList.add('visible');
+        tooltip.style.left = (closestCurve.x + 20) + 'px';
+        tooltip.style.top = (closestCurve.y - 20) + 'px';
+      } else {
+        tooltip.classList.remove('visible');
+      }
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      tooltip.classList.remove('visible');
+      hoverX = null;
+    });
+
+    // ============================================
+    // CONTINUOUS ANIMATION (works in background)
+    // ============================================
+    let lastFrameTime = 0;
+    const targetFPS = 60;
+    const frameInterval = 1000 / targetFPS;
+
+    function animate() {
+      const now = Date.now();
+
+      // Always draw regardless of tab visibility
+      draw(now);
+      updateTimeAxis(now);
+      checkMinuteFlash();
+      updatePriceDiff();
+
+      if (lastWsTime > 0) {
+        const ago = ((now - lastWsTime) / 1000).toFixed(1);
+        wsStatusEl.textContent = `${ago}s ago`;
+        wsStatusEl.classList.toggle('stale', now - lastWsTime > 3000);
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    // Also use setInterval as backup for when tab is inactive
+    setInterval(() => {
+      const now = Date.now();
+      checkMinuteFlash();
+      updatePriceDiff();
+    }, 100);
+
+    // ============================================
+    // WEBSOCKET
+    // ============================================
+    function connect() {
+      const ws = new WebSocket('ws://localhost:8080');
+      wsConnection = ws;
+
+      ws.onopen = () => {
+        wsConnected = true;
+        statusDot.classList.add('connected');
+        statusText.textContent = 'LIVE';
+        authenticateWebSocket();
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        // Handle auth responses
+        if (data.type === 'auth_success') {
+          currentUser = data.user;
+          updateAuthUI();
+          return;
+        }
+        if (data.type === 'auth_error') {
+          console.error('WS auth failed:', data.error);
+          logout();
+          return;
+        }
+        if (data.type === 'balance_update') {
+          if (currentUser) {
+            currentUser.balance = data.balance;
+            updateAuthUI();
+          }
+          return;
+        }
+        if (data.type === 'bet_received' || data.type === 'bet_error') {
+          console.log('Bet response:', data);
+          return;
+        }
+
+        // Price data
+        const price = parseFloat(data.p);
+        if (!isNaN(price)) {
+          const now = Date.now();
+          lastWsTime = now;
+          currentPrice = price;
+          priceEl.textContent = '$' + formatPrice(price);
+        }
+      };
+
+      ws.onclose = () => {
+        wsConnected = false;
+        wsConnection = null;
+        statusDot.classList.remove('connected');
+        statusText.textContent = 'Reconnecting...';
+        setTimeout(connect, 2000);
+      };
+
+      ws.onerror = () => ws.close();
+    }
+
+    // ============================================
+    // LOAD HISTORY FROM DB
+    // ============================================
+    async function loadHistory() {
+      try {
+        const resp = await fetch('http://localhost:8080/api/history?limit=' + CHART_POINTS);
+        if (!resp.ok) return;
+        const rows = await resp.json();
+        if (rows.length === 0) return;
+
+        for (const row of rows) {
+          chartData.push({ time: row.timestamp, price: row.price });
+        }
+
+        // Keep only CHART_POINTS entries
+        while (chartData.length > CHART_POINTS) {
+          chartData.shift();
+        }
+
+        // Set current price from last historical point
+        const last = rows[rows.length - 1];
+        currentPrice = last.price;
+        priceEl.textContent = '$' + formatPrice(currentPrice);
+        lastWsTime = last.timestamp;
+
+        console.log('Loaded ' + rows.length + ' historical prices from DB');
+      } catch (err) {
+        console.log('No historical data available, starting fresh');
+      }
+    }
+
+    // ============================================
+    // INIT
+    // ============================================
+    loadSession();
+    updateEventTime();
+    updateCountdown();
+    loadHistory().then(() => {
+      connect();
+      startSampling();
+      animate();
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', logout);
+  </script>
+</body>
+</html>

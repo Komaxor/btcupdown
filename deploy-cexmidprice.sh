@@ -13,7 +13,7 @@ echo "Running database setup..."
 psql btcupdown < setup-db.sql
 
 echo "Restarting service..."
-systemctl restart btcupdown
+sudo systemctl restart btcupdown
 
 echo "Done. Checking status..."
-systemctl status btcupdown --no-pager
+sudo systemctl status btcupdown --no-pager

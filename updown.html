@@ -1072,7 +1072,7 @@
 
     // Called by Telegram Login Widget
     function onTelegramAuth(user) {
-      fetch('http://localhost:8080/api/auth/telegram', {
+      fetch(location.origin + '/api/auth/telegram', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user)
@@ -1882,7 +1882,8 @@
     // WEBSOCKET
     // ============================================
     function connect() {
-      const ws = new WebSocket('ws://localhost:8080');
+      const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(wsProto + '//' + location.host);
       wsConnection = ws;
 
       ws.onopen = () => {
@@ -1944,7 +1945,7 @@
     // ============================================
     async function loadHistory() {
       try {
-        const resp = await fetch('http://localhost:8080/api/history?limit=' + CHART_POINTS);
+        const resp = await fetch(location.origin + '/api/history?limit=' + CHART_POINTS);
         if (!resp.ok) return;
         const rows = await resp.json();
         if (rows.length === 0) return;

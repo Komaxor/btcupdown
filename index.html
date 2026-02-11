@@ -153,6 +153,7 @@
     /* ── Marquee ── */
     .marquee-wrap {
       margin-top: 40px;
+      margin-bottom: 60px;
       position: relative;
       overflow: hidden;
       width: 100vw;
@@ -160,7 +161,7 @@
       transform: translateX(-50%);
       border-top: 1px solid rgba(255,255,255,0.04);
       border-bottom: 1px solid rgba(255,255,255,0.04);
-      padding: 14px 0;
+      padding: 20px 0;
     }
 
     .marquee-wrap::before,
@@ -185,17 +186,12 @@
     }
 
     .marquee-label {
-      position: absolute;
-      left: 50%;
-      top: -10px;
-      transform: translateX(-50%);
-      background: #06060b;
-      padding: 0 12px;
-      font-size: 0.6rem;
+      text-align: center;
+      font-size: 0.65rem;
       letter-spacing: 2px;
       text-transform: uppercase;
       color: #334155;
-      z-index: 3;
+      margin-bottom: 12px;
     }
 
     .marquee-track {
@@ -207,7 +203,7 @@
     }
 
     .marquee-track:hover {
-      animation-play-state: paused;
+      animation-play-state: running;
     }
 
     @keyframes scroll {
@@ -225,35 +221,16 @@
     }
 
     .marquee-item:hover {
-      opacity: 1;
+      opacity: 0.5;
     }
 
     .marquee-logo {
-      width: 24px;
-      height: 24px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 0.7rem;
-      color: #fff;
+      width: 56px;
+      height: 56px;
       flex-shrink: 0;
+      object-fit: contain;
     }
 
-    .marquee-logo.binance { background: #f0b90b; color: #000; }
-    .marquee-logo.coinbase { background: #0052ff; }
-    .marquee-logo.bybit { background: #f7a600; color: #000; }
-    .marquee-logo.kraken { background: #7b61ff; }
-    .marquee-logo.kucoin { background: #23af91; }
-    .marquee-logo.gemini { background: #00dcfa; color: #000; }
-
-    .marquee-name {
-      font-size: 0.8rem;
-      color: #94a3b8;
-      letter-spacing: 0.5px;
-      white-space: nowrap;
-    }
 
     /* ── Sections ── */
     .section {
@@ -535,22 +512,28 @@
       </div>
     </div>
 
+    <div class="marquee-label">Powered by</div>
     <div class="marquee-wrap">
-      <div class="marquee-label">Powered by</div>
       <div class="marquee-track" id="marqueeTrack">
-        <div class="marquee-item"><div class="marquee-logo binance">B</div><span class="marquee-name">Binance</span></div>
-        <div class="marquee-item"><div class="marquee-logo coinbase">C</div><span class="marquee-name">Coinbase</span></div>
-        <div class="marquee-item"><div class="marquee-logo bybit">By</div><span class="marquee-name">Bybit</span></div>
-        <div class="marquee-item"><div class="marquee-logo kraken">K</div><span class="marquee-name">Kraken</span></div>
-        <div class="marquee-item"><div class="marquee-logo kucoin">Ku</div><span class="marquee-name">KuCoin</span></div>
-        <div class="marquee-item"><div class="marquee-logo gemini">G</div><span class="marquee-name">Gemini</span></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/Binance-Logo.wine.svg" alt="Binance"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/Coinbase-Logo.wine.svg" alt="Coinbase"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/Bybit_Logo.svg" alt="Bybit"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/Bitfinex-Logo.wine.svg" alt="Bitfinex"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/Kraken.svg" alt="Kraken"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/kucoin.svg" alt="KuCoin"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/Gemini.svg" alt="Gemini"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/gate.io.svg" alt="Gate.io"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/crypto.com.svg" alt="Crypto.com"></div>
         <!-- Duplicate for seamless loop -->
-        <div class="marquee-item"><div class="marquee-logo binance">B</div><span class="marquee-name">Binance</span></div>
-        <div class="marquee-item"><div class="marquee-logo coinbase">C</div><span class="marquee-name">Coinbase</span></div>
-        <div class="marquee-item"><div class="marquee-logo bybit">By</div><span class="marquee-name">Bybit</span></div>
-        <div class="marquee-item"><div class="marquee-logo kraken">K</div><span class="marquee-name">Kraken</span></div>
-        <div class="marquee-item"><div class="marquee-logo kucoin">Ku</div><span class="marquee-name">KuCoin</span></div>
-        <div class="marquee-item"><div class="marquee-logo gemini">G</div><span class="marquee-name">Gemini</span></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/Binance-Logo.wine.svg" alt="Binance"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/Coinbase-Logo.wine.svg" alt="Coinbase"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/Bybit_Logo.svg" alt="Bybit"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/Bitfinex-Logo.wine.svg" alt="Bitfinex"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/Kraken.svg" alt="Kraken"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/kucoin.svg" alt="KuCoin"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/Gemini.svg" alt="Gemini"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/gate.io.svg" alt="Gate.io"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="logo/crypto.com.svg" alt="Crypto.com"></div>
       </div>
     </div>
 
@@ -559,8 +542,8 @@
       <div class="section-label">Methodology</div>
       <h2>How the mid price is calculated</h2>
       <p>
-        We aggregate real-time BTC prices from 6 major centralized exchanges across
-        8 trading pairs. Each source is assigned a weight based on exchange volume
+        We aggregate real-time BTC prices from 9 major centralized exchanges across
+        11 trading pairs. Each source is assigned a weight based on exchange volume
         and liquidity. The result is a single, robust reference price updated every second.
       </p>
 
@@ -568,7 +551,7 @@
         <div class="method-cell">
           <div class="num">01</div>
           <h3>Ingest</h3>
-          <p>WebSocket connections stream live trade data from Binance, Coinbase, Bybit, Kraken, KuCoin, and Gemini simultaneously.</p>
+          <p>WebSocket connections stream live trade data from Binance, Coinbase, Bybit, Kraken, KuCoin, Gemini, Bitfinex, Gate.io, and Crypto.com simultaneously.</p>
         </div>
         <div class="method-cell">
           <div class="num">02</div>
@@ -604,49 +587,67 @@
         <div class="weights-row">
           <span class="w-exchange">Binance</span>
           <span class="w-pair">BTC/USDT</span>
-          <span class="w-weight">25%</span>
+          <span class="w-weight">20%</span>
           <span class="w-bar-wrap"><div class="w-bar" style="width:100%"></div></span>
         </div>
         <div class="weights-row">
           <span class="w-exchange">Coinbase</span>
           <span class="w-pair">BTC/USD</span>
-          <span class="w-weight">15%</span>
+          <span class="w-weight">12%</span>
           <span class="w-bar-wrap"><div class="w-bar" style="width:60%"></div></span>
         </div>
         <div class="weights-row">
           <span class="w-exchange">Bybit</span>
           <span class="w-pair">BTC/USDT</span>
-          <span class="w-weight">15%</span>
+          <span class="w-weight">12%</span>
           <span class="w-bar-wrap"><div class="w-bar" style="width:60%"></div></span>
         </div>
         <div class="weights-row">
           <span class="w-exchange">Bybit</span>
           <span class="w-pair">BTC/USDC</span>
-          <span class="w-weight">10%</span>
+          <span class="w-weight">8%</span>
           <span class="w-bar-wrap"><div class="w-bar" style="width:40%"></div></span>
         </div>
         <div class="weights-row">
           <span class="w-exchange">Kraken</span>
           <span class="w-pair">BTC/USDT</span>
-          <span class="w-weight">10%</span>
+          <span class="w-weight">8%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:40%"></div></span>
+        </div>
+        <div class="weights-row">
+          <span class="w-exchange">Bitfinex</span>
+          <span class="w-pair">BTC/USD</span>
+          <span class="w-weight">8%</span>
           <span class="w-bar-wrap"><div class="w-bar" style="width:40%"></div></span>
         </div>
         <div class="weights-row">
           <span class="w-exchange">KuCoin</span>
           <span class="w-pair">BTC/USDT</span>
-          <span class="w-weight">10%</span>
-          <span class="w-bar-wrap"><div class="w-bar" style="width:40%"></div></span>
+          <span class="w-weight">7%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:35%"></div></span>
         </div>
         <div class="weights-row">
           <span class="w-exchange">Gemini</span>
           <span class="w-pair">BTC/USD</span>
-          <span class="w-weight">10%</span>
-          <span class="w-bar-wrap"><div class="w-bar" style="width:40%"></div></span>
+          <span class="w-weight">7%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:35%"></div></span>
+        </div>
+        <div class="weights-row">
+          <span class="w-exchange">Gate.io</span>
+          <span class="w-pair">BTC/USDT</span>
+          <span class="w-weight">7%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:35%"></div></span>
+        </div>
+        <div class="weights-row">
+          <span class="w-exchange">Crypto.com</span>
+          <span class="w-pair">BTC/USD-PERP</span>
+          <span class="w-weight">7%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:35%"></div></span>
         </div>
         <div class="weights-row">
           <span class="w-exchange">Kraken</span>
           <span class="w-pair">BTC/USDC</span>
-          <span class="w-weight">5%</span>
+          <span class="w-weight">4%</span>
           <span class="w-bar-wrap"><div class="w-bar" style="width:20%"></div></span>
         </div>
       </div>

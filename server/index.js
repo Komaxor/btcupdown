@@ -11,6 +11,9 @@ const KuCoinExchange = require('./exchanges/kucoin');
 const CoinbaseExchange = require('./exchanges/coinbase');
 const KrakenExchange = require('./exchanges/kraken');
 const BybitExchange = require('./exchanges/bybit');
+const BitfinexExchange = require('./exchanges/bitfinex');
+const GateIOExchange = require('./exchanges/gateio');
+const CryptoComExchange = require('./exchanges/cryptocom');
 
 console.log('='.repeat(50));
 console.log('BTC Price Aggregator');
@@ -24,7 +27,10 @@ const exchanges = [
   new KuCoinExchange(),    // BTC/USDT (token-based)
   new CoinbaseExchange(),  // BTC/USD
   new KrakenExchange(),    // BTC/USDT + BTC/USDC
-  new BybitExchange()      // BTC/USDT + BTC/USDC
+  new BybitExchange(),     // BTC/USDT + BTC/USDC
+  new BitfinexExchange(),  // BTC/USD
+  new GateIOExchange(),    // BTC/USDT
+  new CryptoComExchange()  // BTC/USD-PERP
 ];
 
 console.log('Exchanges configured:');
@@ -34,8 +40,11 @@ console.log('  - KuCoin (WebSocket + token, BTC/USDT)');
 console.log('  - Coinbase (WebSocket, BTC/USD)');
 console.log('  - Kraken (WebSocket v2, BTC/USDT + BTC/USDC)');
 console.log('  - Bybit (WebSocket, BTC/USDT + BTC/USDC)');
+console.log('  - Bitfinex (WebSocket, BTC/USD)');
+console.log('  - Gate.io (WebSocket, BTC/USDT)');
+console.log('  - Crypto.com (WebSocket, BTC/USD-PERP)');
 console.log('');
-console.log('Total price sources: 8');
+console.log('Total price sources: 11');
 console.log('');
 
 if (!config.telegram.botToken) {

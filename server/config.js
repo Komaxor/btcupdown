@@ -9,16 +9,19 @@ module.exports = {
   staleThreshold: 10000,
 
   // Exchange weights for weighted average (should sum to 1.0)
-  // 8 total sources after removing coinbase_usdc
+  // 11 total sources across 9 exchanges
   weights: {
-    binance: 0.25,
-    bybit_usdt: 0.15,
-    bybit_usdc: 0.10,
-    coinbase: 0.15,
-    kraken_usdt: 0.10,
-    kraken_usdc: 0.05,
-    kucoin: 0.10,
-    gemini: 0.10
+    binance: 0.20,
+    bybit_usdt: 0.12,
+    coinbase: 0.12,
+    bybit_usdc: 0.08,
+    kraken_usdt: 0.08,
+    bitfinex: 0.08,
+    kucoin: 0.07,
+    gemini: 0.07,
+    gateio: 0.07,
+    cryptocom: 0.07,
+    kraken_usdc: 0.04
   },
 
   // Reconnection settings
@@ -43,6 +46,9 @@ module.exports = {
       pingInterval: 20000 // 20 seconds
     },
     kucoin: {
+      pingInterval: 30000 // 30 seconds
+    },
+    gateio: {
       pingInterval: 30000 // 30 seconds
     }
   }

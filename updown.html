@@ -21,16 +21,17 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 30px 20px;
+      padding: 12px 8px;
       font-family: 'Segoe UI', system-ui, sans-serif;
       overflow-x: hidden;
     }
 
     .main-layout {
-      width: 95%;
+      width: 100%;
       max-width: 1400px;
       display: flex;
-      gap: 20px;
+      flex-direction: column;
+      gap: 16px;
     }
 
     .left-panel {
@@ -39,31 +40,30 @@
     }
 
     .right-panel {
-      width: 320px;
-      flex-shrink: 0;
+      order: -1;
     }
 
     /* Polymarket-style Header */
     .header {
       display: flex;
       align-items: flex-start;
-      gap: 16px;
-      margin-bottom: 24px;
-      padding: 16px;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding: 12px;
       background: rgba(20,20,35,0.6);
       border-radius: 12px;
       border: 1px solid rgba(255,255,255,0.08);
     }
 
     .btc-logo {
-      width: 56px;
-      height: 56px;
+      width: 40px;
+      height: 40px;
       background: #f7931a;
-      border-radius: 10px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.8rem;
+      font-size: 1.4rem;
       font-weight: bold;
       color: #fff;
       flex-shrink: 0;
@@ -82,7 +82,7 @@
     }
 
     .event-title {
-      font-size: 1.4rem;
+      font-size: 1.1rem;
       font-weight: 600;
       color: #fff;
     }
@@ -110,7 +110,8 @@
     .price-row {
       display: flex;
       align-items: flex-end;
-      gap: 40px;
+      flex-wrap: wrap;
+      gap: 12px;
     }
 
     .price-block {
@@ -144,7 +145,7 @@
     .price-diff-small.down { color: #ef4444; }
 
     .price-value {
-      font-size: 2rem;
+      font-size: 1.5rem;
       font-weight: 700;
       color: #fff;
     }
@@ -154,7 +155,6 @@
     .price-value.current.up { color: #44b77b; }
 
     .countdown-block {
-      margin-left: auto;
       display: flex;
       gap: 8px;
       align-items: flex-end;
@@ -167,7 +167,7 @@
     }
 
     .countdown-value {
-      font-size: 2rem;
+      font-size: 1.5rem;
       font-weight: 700;
       color: #ef4444;
       line-height: 1;
@@ -183,10 +183,10 @@
     .chart-container {
       position: relative;
       background: linear-gradient(180deg, rgba(20,20,35,0.9) 0%, rgba(10,10,20,0.95) 100%);
-      border-radius: 20px;
-      padding: 20px;
-      padding-left: 90px;
-      padding-bottom: 50px;
+      border-radius: 12px;
+      padding: 16px;
+      padding-left: 55px;
+      padding-bottom: 40px;
       box-shadow:
         0 0 60px rgba(0,0,0,0.5),
         inset 0 1px 0 rgba(255,255,255,0.1),
@@ -214,12 +214,12 @@
     .y-axis {
       position: absolute;
       left: 0;
-      top: 20px;
-      bottom: 50px;
-      width: 85px;
-      font-size: 0.75rem;
+      top: 16px;
+      bottom: 40px;
+      width: 50px;
+      font-size: 0.65rem;
       text-align: right;
-      padding-right: 10px;
+      padding-right: 6px;
     }
 
     .y-label {
@@ -249,12 +249,12 @@
 
     .time-axis {
       position: absolute;
-      bottom: 10px;
-      left: 90px;
-      right: 20px;
-      height: 30px;
+      bottom: 8px;
+      left: 55px;
+      right: 16px;
+      height: 28px;
       overflow: hidden;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       color: #666;
     }
 
@@ -383,14 +383,14 @@
 
     /* Data Feed */
     .data-feed {
-      margin-top: 20px;
+      margin-top: 16px;
       background: rgba(10,10,20,0.8);
       border-radius: 12px;
       border: 1px solid rgba(255,255,255,0.1);
-      max-height: 200px;
+      max-height: 150px;
       overflow-y: auto;
       font-family: 'Monaco', 'Consolas', monospace;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
     }
 
     .data-feed-header {
@@ -412,7 +412,7 @@
 
     .data-row {
       display: flex;
-      padding: 8px 16px;
+      padding: 6px 10px;
       border-bottom: 1px solid rgba(255,255,255,0.05);
       animation: fadeIn 0.3s ease;
     }
@@ -424,11 +424,11 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    .data-time { color: #888; width: 90px; flex-shrink: 0; }
-    .data-price { color: #fff; font-weight: 600; margin-left: 20px; width: 110px; }
+    .data-time { color: #888; width: 70px; flex-shrink: 0; }
+    .data-price { color: #fff; font-weight: 600; margin-left: 12px; flex: 1; }
     .data-price.up { color: #00ff88; }
     .data-price.down { color: #ff4466; }
-    .data-change { margin-left: auto; font-size: 0.75rem; width: 70px; text-align: right; }
+    .data-change { margin-left: auto; font-size: 0.7rem; text-align: right; flex-shrink: 0; }
     .data-change.up { color: #00ff88; }
     .data-change.down { color: #ff4466; }
 
@@ -767,12 +767,14 @@
     ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
 
     .top-nav {
-      width: 95%;
+      width: 100%;
       max-width: 1400px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
     }
 
     .top-nav .nav-logo {
@@ -802,7 +804,8 @@
     .top-nav .nav-right {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     #userInfo {
@@ -844,6 +847,103 @@
     #logoutBtn:hover {
       color: #fff;
       border-color: #666;
+    }
+    /* ===== Desktop (768px+) ===== */
+    @media (min-width: 768px) {
+      body {
+        padding: 30px 20px;
+      }
+
+      .main-layout {
+        width: 95%;
+        flex-direction: row;
+        gap: 20px;
+      }
+
+      .right-panel {
+        order: 0;
+        width: 320px;
+        flex-shrink: 0;
+      }
+
+      .top-nav {
+        width: 95%;
+        margin-bottom: 20px;
+      }
+
+      .top-nav .nav-right {
+        gap: 12px;
+      }
+
+      .header {
+        gap: 16px;
+        margin-bottom: 24px;
+        padding: 16px;
+      }
+
+      .btc-logo {
+        width: 56px;
+        height: 56px;
+        border-radius: 10px;
+        font-size: 1.8rem;
+      }
+
+      .event-title {
+        font-size: 1.4rem;
+      }
+
+      .price-row {
+        gap: 40px;
+        flex-wrap: nowrap;
+      }
+
+      .price-value {
+        font-size: 2rem;
+      }
+
+      .countdown-block {
+        margin-left: auto;
+      }
+
+      .countdown-value {
+        font-size: 2rem;
+      }
+
+      .chart-container {
+        border-radius: 20px;
+        padding: 20px;
+        padding-left: 90px;
+        padding-bottom: 50px;
+      }
+
+      .y-axis {
+        top: 20px;
+        bottom: 50px;
+        width: 85px;
+        font-size: 0.75rem;
+        padding-right: 10px;
+      }
+
+      .time-axis {
+        bottom: 10px;
+        left: 90px;
+        right: 20px;
+        height: 30px;
+        font-size: 0.75rem;
+      }
+
+      .data-feed {
+        max-height: 200px;
+        font-size: 0.8rem;
+      }
+
+      .data-row {
+        padding: 8px 16px;
+      }
+
+      .data-time { width: 90px; }
+      .data-price { margin-left: 20px; width: 110px; flex: none; }
+      .data-change { width: 70px; font-size: 0.75rem; }
     }
   </style>
 </head>
@@ -1337,7 +1437,7 @@
     // ============================================
     function resize() {
       canvas.width = canvas.parentElement.clientWidth;
-      canvas.height = 280;
+      canvas.height = window.innerWidth < 768 ? 220 : 280;
     }
     resize();
     window.addEventListener('resize', resize);

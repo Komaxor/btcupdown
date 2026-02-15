@@ -40,6 +40,13 @@ module.exports = {
     authExpiry: 86400 // reject auth_date older than 24h
   },
 
+  // Trading engine
+  trading: {
+    maxSharesPerOrder: 10000,
+    minPrice: 1,   // cents
+    maxPrice: 99,  // cents
+  },
+
   // Exchange-specific config
   exchanges: {
     gemini: {

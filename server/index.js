@@ -3,6 +3,7 @@ const config = require('./config');
 const PriceAggregator = require('./aggregator');
 const PriceWebSocketServer = require('./websocket-server');
 const PriceFeed = require('./price-feed');
+const TradingEngine = require('./trading-engine');
 const db = require('./db');
 
 // Import all exchange adapters
@@ -60,6 +61,9 @@ const aggregator = new PriceAggregator(exchanges);
 // Create WebSocket server for frontend
 const wsServer = new PriceWebSocketServer(config.serverPort);
 
+// Create trading engine (sendToUser callback wired after wsServer is created)
+const tradingEngine = new TradingEngine(config, (userId, msg) => wsServer.sendToUser(userId, msg));
+
 // Create public price feed
 const priceFeed = new PriceFeed(config.priceFeedPort);
 
@@ -70,7 +74,7 @@ console.log('');
 db.init()
   .then(() => {
     aggregator.start();
-    wsServer.start(aggregator);
+    wsServer.start(aggregator, tradingEngine);
     priceFeed.start(aggregator);
 
     console.log('');

@@ -744,8 +744,16 @@ canvas {
 
 .limit-section { display: none; }
 .limit-section.show { display: block; }
+.stop-section { display: none; }
+.stop-section.show { display: block; }
 .market-section { display: none; }
 .market-section.show { display: block; }
+
+.label-hint {
+  color: #666;
+  font-weight: 400;
+  font-size: 0.8rem;
+}
 
 .top-nav {
   width: 100%;

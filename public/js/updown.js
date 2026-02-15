@@ -23,8 +23,9 @@ const outcomes = []; // { priceToBeat, outcome, isUp }
 // Bet state
 let betSide = 'buy'; // 'buy' or 'sell'
 let betOutcome = 'yes'; // 'yes' or 'no'
-let orderType = 'market'; // 'market' or 'limit'
+let orderType = 'market'; // 'market', 'limit', or 'stop_limit'
 let limitPrice = 50; // cents
+let stopPrice = 50; // cents (trigger price for stop-limit)
 let shares = 0;
 let expiryEnabled = false;
 // ============================================
@@ -82,6 +83,10 @@ const limitSection = document.getElementById('limitSection');
 const limitMinus = document.getElementById('limitMinus');
 const limitPlus = document.getElementById('limitPlus');
 const limitValueEl = document.getElementById('limitValue');
+const stopSection = document.getElementById('stopSection');
+const stopMinus = document.getElementById('stopMinus');
+const stopPlus = document.getElementById('stopPlus');
+const stopValueEl = document.getElementById('stopValue');
 const sharesInput = document.getElementById('sharesInput');
 const limitQuickBtns = document.getElementById('limitQuickBtns');
 const marketQuickBtns = document.getElementById('marketQuickBtns');
@@ -115,19 +120,25 @@ function updateBetUI() {
   btnNo.classList.toggle('selected', betOutcome === 'no');
 
   // Update order type display
-  orderTypeLabel.textContent = orderType === 'market' ? 'Market' : 'Limit';
+  const typeLabels = { market: 'Market', limit: 'Limit', stop_limit: 'Stop Limit' };
+  orderTypeLabel.textContent = typeLabels[orderType] || 'Market';
 
-  // Show/hide limit sections
-  const showLimit = orderType === 'limit';
+  // Show/hide sections based on order type
+  const showLimit = orderType === 'limit' || orderType === 'stop_limit';
+  const showStop = orderType === 'stop_limit';
   document.querySelectorAll('.limit-section').forEach(el => {
     el.classList.toggle('show', showLimit);
+  });
+  document.querySelectorAll('.stop-section').forEach(el => {
+    el.classList.toggle('show', showStop);
   });
   document.querySelectorAll('.market-section').forEach(el => {
     el.classList.toggle('show', !showLimit);
   });
 
-  // Update limit value
+  // Update limit and stop values
   limitValueEl.textContent = limitPrice;
+  stopValueEl.textContent = stopPrice;
 
   // Update expiry toggle
   expiryToggle.classList.toggle('active', expiryEnabled);
@@ -139,7 +150,7 @@ function updateBetUI() {
   noPrice.textContent = noP + '¢';
 
   // Calculate total and potential win
-  const pricePerShare = orderType === 'limit' ? limitPrice : (betOutcome === 'yes' ? yesP : noP);
+  const pricePerShare = (orderType === 'limit' || orderType === 'stop_limit') ? limitPrice : (betOutcome === 'yes' ? yesP : noP);
   const total = (shares * pricePerShare / 100).toFixed(2);
   const potentialWin = (shares * (100 - pricePerShare) / 100).toFixed(2);
 
@@ -184,6 +195,17 @@ limitMinus.addEventListener('click', () => {
 
 limitPlus.addEventListener('click', () => {
   limitPrice = Math.min(99, limitPrice + 1);
+  updateBetUI();
+});
+
+// Stop price controls
+stopMinus.addEventListener('click', () => {
+  stopPrice = Math.max(1, stopPrice - 1);
+  updateBetUI();
+});
+
+stopPlus.addEventListener('click', () => {
+  stopPrice = Math.min(99, stopPrice + 1);
   updateBetUI();
 });
 
@@ -238,12 +260,29 @@ tradeBtn.addEventListener('click', () => {
   if (shares <= 0) return;
   if (!wsConnection || wsConnection.readyState !== WebSocket.OPEN) return;
 
-  wsConnection.send(JSON.stringify({
-    type: 'place_bet',
-    direction: betOutcome,
-    amount: shares,
-    side: betSide
-  }));
+  // Map UI orderType to server orderType
+  let serverOrderType = orderType;
+  if (orderType === 'market') serverOrderType = 'market_fak';
+
+  const msg = {
+    type: 'place_order',
+    orderType: serverOrderType,
+    side: betSide,
+    outcome: betOutcome,
+    shares: shares
+  };
+
+  // Add price for limit and stop-limit orders
+  if (orderType === 'limit' || orderType === 'stop_limit') {
+    msg.price = limitPrice;
+  }
+
+  // Add stop price for stop-limit orders
+  if (orderType === 'stop_limit') {
+    msg.stopPrice = stopPrice;
+  }
+
+  wsConnection.send(JSON.stringify(msg));
 });
 
 // Initialize bet UI
@@ -849,8 +888,23 @@ function connect() {
       }
       return;
     }
-    if (data.type === 'bet_received' || data.type === 'bet_error') {
-      console.log('Bet response:', data);
+    if (data.type === 'order_accepted') {
+      console.log('Order accepted:', data.order);
+      shares = 0;
+      sharesInput.value = '';
+      updateBetUI();
+      return;
+    }
+    if (data.type === 'order_rejected') {
+      console.error('Order rejected:', data.error);
+      return;
+    }
+    if (data.type === 'order_cancelled') {
+      console.log('Order cancelled:', data.orderId, 'refund:', data.refund);
+      return;
+    }
+    if (data.type === 'order_update' || data.type === 'trade' || data.type === 'settlement') {
+      console.log(data.type + ':', data);
       return;
     }
     if (data.type === 'price_to_beat') {

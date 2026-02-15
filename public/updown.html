@@ -116,6 +116,7 @@
             <div class="order-dropdown" id="orderDropdown">
               <div class="order-option selected" data-type="market">Market</div>
               <div class="order-option" data-type="limit">Limit</div>
+              <div class="order-option" data-type="stop_limit">Stop Limit</div>
             </div>
           </div>
         </div>
@@ -130,7 +131,17 @@
           </button>
         </div>
 
-        <!-- Limit Price (only for Limit orders) -->
+        <!-- Stop Price (only for Stop Limit orders) -->
+        <div class="bet-section stop-section" id="stopSection">
+          <div class="bet-label">Stop Price <span class="label-hint">(trigger)</span></div>
+          <div class="limit-price-control">
+            <button class="limit-btn" id="stopMinus">−</button>
+            <div class="limit-value"><span id="stopValue">50</span>¢</div>
+            <button class="limit-btn" id="stopPlus">+</button>
+          </div>
+        </div>
+
+        <!-- Limit Price (for Limit + Stop Limit orders) -->
         <div class="bet-section limit-section" id="limitSection">
           <div class="bet-label">Limit Price</div>
           <div class="limit-price-control">

@@ -4,14 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Up/Down — CEX Mid Price</title>
-  <script async src="https://telegram.org/js/telegram-widget.js?22"
-    data-telegram-login="cexmidpricebot"
-    data-size="medium"
-    data-radius="8"
-    data-userpic="false"
-    data-onauth="onTelegramAuth(user)"
-    data-request-access="write">
-  </script>
   <link rel="stylesheet" href="css/common.css">
   <link rel="stylesheet" href="css/updown.css">
 </head>
@@ -20,12 +12,28 @@
     <a href="index.html" class="nav-logo">CEX <span>Mid Price</span></a>
     <div class="nav-right">
       <a href="index.html" class="nav-back">&larr; Home</a>
-      <div id="telegramLoginBtn"></div>
+      <div id="telegramLoginBtn">
+        <script async src="https://telegram.org/js/telegram-widget.js?22"
+          data-telegram-login="cexmidpricebot"
+          data-size="medium"
+          data-radius="8"
+          data-userpic="false"
+          data-onauth="onTelegramAuth(user)"
+          data-request-access="write">
+        </script>
+      </div>
       <div id="userInfo">
-        <img id="userAvatar" src="" alt="">
-        <span id="userName"></span>
-        <span id="userBalanceDisplay"></span>
-        <button id="logoutBtn">Logout</button>
+        <div id="userInfoTrigger">
+          <img id="userAvatar" src="" alt="">
+          <span id="userName"></span>
+          <span id="userBalanceDisplay"></span>
+          <span class="dropdown-arrow">&#9662;</span>
+        </div>
+        <div id="userDropdown" class="user-dropdown">
+          <a href="/profile.html" target="_blank" class="user-dropdown-item">History</a>
+          <a href="/api.html" target="_blank" class="user-dropdown-item">API</a>
+          <button class="user-dropdown-item" id="logoutBtn">Logout</button>
+        </div>
       </div>
     </div>
   </div>
@@ -36,9 +44,15 @@
         <div class="header-main">
           <div class="header-top">
             <div class="event-title">Bitcoin Up or Down</div>
-            <div class="header-icons">
-              <span class="header-icon">⛓</span>
-              <span class="header-icon">🔖</span>
+            <div class="countdown-block">
+              <div class="countdown-unit">
+                <div class="countdown-value" id="countdownMins">--</div>
+                <div class="countdown-label">Mins</div>
+              </div>
+              <div class="countdown-unit">
+                <div class="countdown-value" id="countdownSecs">--</div>
+                <div class="countdown-label">Secs</div>
+              </div>
             </div>
           </div>
           <div class="event-time" id="eventTime">January 22, 3:45-4PM ET</div>
@@ -53,16 +67,6 @@
                 <span class="price-diff-small" id="priceDiff"></span>
               </div>
               <div class="price-value current" id="price">$--</div>
-            </div>
-            <div class="countdown-block">
-              <div class="countdown-unit">
-                <div class="countdown-value" id="countdownMins">--</div>
-                <div class="countdown-label">Mins</div>
-              </div>
-              <div class="countdown-unit">
-                <div class="countdown-value" id="countdownSecs">--</div>
-                <div class="countdown-label">Secs</div>
-              </div>
             </div>
           </div>
         </div>
@@ -116,13 +120,13 @@
           </div>
         </div>
 
-        <!-- Yes / No Outcome Buttons -->
+        <!-- Up / Down Outcome Buttons -->
         <div class="outcome-buttons">
           <button class="outcome-btn yes selected" id="btnYes">
-            Yes <span class="outcome-price" id="yesPrice">50¢</span>
+            Up <span class="outcome-price" id="yesPrice">50¢</span>
           </button>
           <button class="outcome-btn no" id="btnNo">
-            No <span class="outcome-price" id="noPrice">50¢</span>
+            Down <span class="outcome-price" id="noPrice">50¢</span>
           </button>
         </div>
 
@@ -181,6 +185,7 @@
     </div>
   </div>
 
+  <script src="js/auth.js"></script>
   <script src="js/updown.js"></script>
 </body>
 </html>

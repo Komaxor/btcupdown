@@ -1,8 +1,26 @@
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const { WebSocketServer } = require('ws');
 const config = require('./config');
 const db = require('./db');
 const { verifyTelegramAuth, createSessionToken } = require('./auth');
+
+const STATIC_DIR = path.join(__dirname, '..', 'public');
+const MIME_TYPES = {
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.js': 'application/javascript',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+};
 
 class PriceWebSocketServer {
   constructor(port = config.serverPort) {
@@ -97,8 +115,30 @@ class PriceWebSocketServer {
         return;
       }
 
-      res.writeHead(404);
-      res.end();
+      // Static file serving
+      let filePath = req.url.split('?')[0];
+      if (filePath === '/') filePath = '/index.html';
+      const fullPath = path.join(STATIC_DIR, filePath);
+
+      // Prevent directory traversal
+      if (!fullPath.startsWith(STATIC_DIR)) {
+        res.writeHead(403);
+        res.end();
+        return;
+      }
+
+      const ext = path.extname(fullPath);
+      const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+      fs.readFile(fullPath, (err, data) => {
+        if (err) {
+          res.writeHead(404);
+          res.end();
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': contentType });
+        res.end(data);
+      });
     });
 
     // Attach WebSocket server to the HTTP server

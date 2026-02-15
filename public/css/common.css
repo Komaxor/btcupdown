@@ -5,3 +5,108 @@
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+/* Shared auth UI */
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#userInfo {
+  display: none;
+  position: relative;
+}
+
+#userInfoTrigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+#userInfoTrigger:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.dropdown-arrow {
+  color: #666;
+  font-size: 0.7rem;
+  transition: transform 0.2s;
+}
+
+#userInfo.dropdown-open .dropdown-arrow {
+  transform: rotate(180deg);
+}
+
+#userAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+#userName {
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+#userBalanceDisplay {
+  color: #4a9eff;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* User dropdown */
+.user-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 160px;
+  background: #1e2130;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 4px;
+  z-index: 1000;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+}
+
+#userInfo.dropdown-open .user-dropdown {
+  display: block;
+}
+
+.user-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  color: #ccc;
+  font-size: 0.85rem;
+  font-family: inherit;
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.user-dropdown-item:hover {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+}
+
+#logoutBtn {
+  color: #ef4444;
+}
+
+#logoutBtn:hover {
+  background: rgba(239,68,68,0.1);
+  color: #ff6b6b;
+}

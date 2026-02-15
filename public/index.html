@@ -12,7 +12,31 @@
 
     <nav>
       <div class="logo">CEX <span>Mid Price</span></div>
-      <a href="updown.html">Up/Down</a>
+      <div class="nav-right">
+        <a href="updown.html">Up/Down</a>
+        <div id="telegramLoginBtn">
+          <script async src="https://telegram.org/js/telegram-widget.js?22"
+            data-telegram-login="cexmidpricebot"
+            data-size="medium"
+            data-radius="8"
+            data-userpic="false"
+            data-onauth="onTelegramAuth(user)"
+            data-request-access="write">
+          </script>
+        </div>
+        <div id="userInfo">
+          <div id="userInfoTrigger">
+            <span id="userName"></span>
+            <span id="userBalanceDisplay"></span>
+            <span class="dropdown-arrow">&#9662;</span>
+          </div>
+          <div id="userDropdown" class="user-dropdown">
+            <a href="/profile.html" target="_blank" class="user-dropdown-item">History</a>
+            <a href="/api.html" target="_blank" class="user-dropdown-item">API</a>
+            <button class="user-dropdown-item" id="logoutBtn">Logout</button>
+          </div>
+        </div>
+      </div>
     </nav>
 
     <!-- Hero Price -->
@@ -227,6 +251,7 @@
     <footer>CEX MID PRICE &middot; REAL-TIME AGGREGATED BTC REFERENCE</footer>
   </div>
 
+  <script src="js/auth.js"></script>
   <script src="js/index.js"></script>
 </body>
 </html>

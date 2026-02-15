@@ -28,81 +28,9 @@ let limitPrice = 50; // cents
 let shares = 0;
 let expiryEnabled = false;
 // ============================================
-// AUTH STATE
+// AUTH (WS-specific — shared auth in auth.js)
 // ============================================
-let currentUser = null;
-let authToken = null;
 let wsConnection = null;
-
-function getUserBalance() {
-  return currentUser ? parseFloat(currentUser.balance) : 0;
-}
-
-function loadSession() {
-  const saved = localStorage.getItem('tg_session');
-  if (saved) {
-    try {
-      const session = JSON.parse(saved);
-      currentUser = session.user;
-      authToken = session.token;
-      updateAuthUI();
-      return true;
-    } catch (e) {
-      localStorage.removeItem('tg_session');
-    }
-  }
-  return false;
-}
-
-// Called by Telegram Login Widget
-function onTelegramAuth(user) {
-  fetch(location.origin + '/api/auth/telegram', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(user)
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.error) {
-      console.error('Auth failed:', data.error);
-      return;
-    }
-    currentUser = data.user;
-    authToken = data.token;
-
-    localStorage.setItem('tg_session', JSON.stringify({
-      user: data.user,
-      token: data.token,
-      userId: user.id,
-      authDate: user.auth_date
-    }));
-
-    updateAuthUI();
-    authenticateWebSocket();
-  })
-  .catch(err => console.error('Auth request failed:', err));
-}
-
-function updateAuthUI() {
-  const loginBtn = document.getElementById('telegramLoginBtn');
-  const userInfo = document.getElementById('userInfo');
-
-  if (currentUser) {
-    loginBtn.style.display = 'none';
-    userInfo.style.display = 'flex';
-    document.getElementById('userName').textContent = currentUser.first_name;
-    document.getElementById('userBalanceDisplay').textContent = '$' + parseFloat(currentUser.balance).toFixed(2);
-    if (currentUser.photo_url) {
-      document.getElementById('userAvatar').src = currentUser.photo_url;
-      document.getElementById('userAvatar').style.display = '';
-    } else {
-      document.getElementById('userAvatar').style.display = 'none';
-    }
-  } else {
-    loginBtn.style.display = '';
-    userInfo.style.display = 'none';
-  }
-}
 
 function authenticateWebSocket() {
   if (!wsConnection || wsConnection.readyState !== WebSocket.OPEN) return;
@@ -115,13 +43,6 @@ function authenticateWebSocket() {
     userId: session.userId,
     authDate: session.authDate
   }));
-}
-
-function logout() {
-  currentUser = null;
-  authToken = null;
-  localStorage.removeItem('tg_session');
-  updateAuthUI();
 }
 
 // ============================================
@@ -169,6 +90,17 @@ const expiryToggle = document.getElementById('expiryToggle');
 const totalValue = document.getElementById('totalValue');
 const toWinValue = document.getElementById('toWinValue');
 const tradeBtn = document.getElementById('tradeBtn');
+
+// ============================================
+// PRICE FONT-SIZE SCALER
+// ============================================
+const headerEl = document.querySelector('.header');
+new ResizeObserver(([entry]) => {
+  const w = entry.contentBoxSize?.[0]?.inlineSize ?? entry.contentRect.width;
+  const size = Math.min(Math.max(w / 18, 14), window.innerWidth < 768 ? 24 : 32);
+  priceToBeatEl.style.fontSize = size + 'px';
+  priceEl.style.fontSize = size + 'px';
+}).observe(headerEl);
 
 // ============================================
 // BET PANEL HANDLERS
@@ -291,18 +223,19 @@ expiryToggle.addEventListener('click', () => {
 
 // Trade button
 tradeBtn.addEventListener('click', () => {
-  if (shares <= 0) return;
-
   if (!currentUser) {
-    tradeBtn.textContent = 'Login with Telegram to trade';
-    tradeBtn.style.background = '#ef4444';
-    setTimeout(() => {
-      tradeBtn.textContent = 'Trade';
-      tradeBtn.style.background = '#4a9eff';
-    }, 2000);
+    // Trigger Telegram login widget click
+    const tgIframe = document.querySelector('#telegramLoginBtn iframe');
+    if (tgIframe) {
+      tgIframe.contentWindow.postMessage({ event: 'auth_user' }, '*');
+    }
+    // Fallback: show the login widget area
+    const loginBtn = document.getElementById('telegramLoginBtn');
+    if (loginBtn) loginBtn.style.display = '';
     return;
   }
 
+  if (shares <= 0) return;
   if (!wsConnection || wsConnection.readyState !== WebSocket.OPEN) return;
 
   wsConnection.send(JSON.stringify({
@@ -1002,7 +935,6 @@ async function loadOutcomes() {
 // ============================================
 // INIT
 // ============================================
-loadSession();
 updateEventTime();
 updateCountdown();
 Promise.all([loadHistory(), loadOutcomes()]).then(() => {
@@ -1010,5 +942,3 @@ Promise.all([loadHistory(), loadOutcomes()]).then(() => {
   startSampling();
   animate();
 });
-
-document.getElementById('logoutBtn').addEventListener('click', logout);

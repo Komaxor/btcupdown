@@ -60,6 +60,10 @@ nav a:hover {
   color: #fff;
 }
 
+nav .nav-right {
+  gap: 12px;
+}
+
 /* ── Hero price ── */
 .hero {
   text-align: center;

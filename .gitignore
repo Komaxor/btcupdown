@@ -26,3 +26,5 @@ npm-debug.log*
 dist/
 build/
 *.tgz
+
+TODO.txt

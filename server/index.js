@@ -2,6 +2,7 @@ require('dotenv').config();
 const config = require('./config');
 const PriceAggregator = require('./aggregator');
 const PriceWebSocketServer = require('./websocket-server');
+const PriceFeed = require('./price-feed');
 const db = require('./db');
 
 // Import all exchange adapters
@@ -59,6 +60,9 @@ const aggregator = new PriceAggregator(exchanges);
 // Create WebSocket server for frontend
 const wsServer = new PriceWebSocketServer(config.serverPort);
 
+// Create public price feed
+const priceFeed = new PriceFeed(config.priceFeedPort);
+
 // Start everything
 console.log('Starting services...');
 console.log('');
@@ -67,6 +71,7 @@ db.init()
   .then(() => {
     aggregator.start();
     wsServer.start(aggregator);
+    priceFeed.start(aggregator);
 
     console.log('');
     console.log('Ready! Frontend can connect to ws://localhost:' + config.serverPort);
@@ -84,6 +89,7 @@ process.on('SIGINT', () => {
   console.log('Shutting down...');
   aggregator.stop();
   wsServer.stop();
+  priceFeed.stop();
   db.close().then(() => {
     console.log('Goodbye!');
     process.exit(0);
@@ -95,6 +101,7 @@ process.on('SIGTERM', () => {
   console.log('Shutting down...');
   aggregator.stop();
   wsServer.stop();
+  priceFeed.stop();
   db.close().then(() => process.exit(0));
 });
 

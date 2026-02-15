@@ -2,6 +2,9 @@ module.exports = {
   // WebSocket server port for frontend
   serverPort: 8080,
 
+  // Public price feed WebSocket port
+  priceFeedPort: 8082,
+
   // Aggregation interval in milliseconds
   aggregateInterval: 1000,
 

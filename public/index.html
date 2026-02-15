@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CEX Mid Price</title>
+  <link rel="stylesheet" href="css/common.css">
+  <link rel="stylesheet" href="css/index.css">
+</head>
+<body>
+  <div class="container">
+
+    <nav>
+      <div class="logo">CEX <span>Mid Price</span></div>
+      <a href="updown.html">Up/Down</a>
+    </nav>
+
+    <!-- Hero Price -->
+    <div class="hero">
+      <div class="hero-label">BTC Aggregated Mid Price</div>
+      <div class="hero-price" id="price">$--</div>
+      <div class="hero-sub">
+        <span class="hero-change" id="change"></span>
+        <span class="status-pill disconnected" id="statusPill">
+          <span class="dot"></span>
+          <span id="statusLabel">Connecting</span>
+        </span>
+        <span id="sourceCount"></span>
+      </div>
+    </div>
+
+    <div class="marquee-label">Powered by</div>
+    <div class="marquee-wrap">
+      <div class="marquee-track" id="marqueeTrack">
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/Binance-Logo.wine.svg" alt="Binance"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/Coinbase-Logo.wine.svg" alt="Coinbase"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/Bybit_Logo.svg" alt="Bybit"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/Bitfinex-Logo.wine.svg" alt="Bitfinex"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/Kraken.svg" alt="Kraken"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/kucoin.svg" alt="KuCoin"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/Gemini.svg" alt="Gemini"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/gate.io.svg" alt="Gate.io"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/crypto.com.svg" alt="Crypto.com"></div>
+        <!-- Duplicate for seamless loop -->
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/Binance-Logo.wine.svg" alt="Binance"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/Coinbase-Logo.wine.svg" alt="Coinbase"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/Bybit_Logo.svg" alt="Bybit"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/Bitfinex-Logo.wine.svg" alt="Bitfinex"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/Kraken.svg" alt="Kraken"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/kucoin.svg" alt="KuCoin"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/Gemini.svg" alt="Gemini"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/gate.io.svg" alt="Gate.io"></div>
+        <div class="marquee-item"><img class="marquee-logo" src="assets/logos/crypto.com.svg" alt="Crypto.com"></div>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="section">
+      <div class="section-label">Methodology</div>
+      <h2>How the mid price is calculated</h2>
+      <p>
+        We aggregate real-time BTC prices from 9 major centralized exchanges across
+        11 trading pairs. Each source is assigned a weight based on exchange volume
+        and liquidity. The result is a single, robust reference price updated every second.
+      </p>
+
+      <div class="method-grid">
+        <div class="method-cell">
+          <div class="num">01</div>
+          <h3>Ingest</h3>
+          <p>WebSocket connections stream live trade data from Binance, Coinbase, Bybit, Kraken, KuCoin, Gemini, Bitfinex, Gate.io, and Crypto.com simultaneously.</p>
+        </div>
+        <div class="method-cell">
+          <div class="num">02</div>
+          <h3>Normalize</h3>
+          <p>Prices from USD, USDT, and USDC pairs are treated equivalently and combined into a unified price set.</p>
+        </div>
+        <div class="method-cell">
+          <div class="num">03</div>
+          <h3>Weight</h3>
+          <p>Each source is weighted proportionally to its exchange's global trade volume and reliability.</p>
+        </div>
+        <div class="method-cell">
+          <div class="num">04</div>
+          <h3>Aggregate</h3>
+          <p>A normalized weighted average is computed every second: <code style="color:#3b82f6;font-size:0.75rem">price = &Sigma;(p&times;w) / &Sigma;(w)</code>. If a source drops, remaining weights re-normalize automatically.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weights -->
+    <div class="section">
+      <div class="section-label">Source Weights</div>
+      <h2>Exchange breakdown</h2>
+      <p>Weights reflect relative trading volume and market share. Binance dominates global BTC volume and receives the highest weight.</p>
+
+      <div class="weights-table">
+        <div class="weights-row header">
+          <span class="w-exchange">Exchange</span>
+          <span class="w-pair">Pair</span>
+          <span class="w-weight">Weight</span>
+          <span class="w-bar-wrap"></span>
+        </div>
+        <div class="weights-row">
+          <span class="w-exchange">Binance</span>
+          <span class="w-pair">BTC/USDT</span>
+          <span class="w-weight">20%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:100%"></div></span>
+        </div>
+        <div class="weights-row">
+          <span class="w-exchange">Coinbase</span>
+          <span class="w-pair">BTC/USD</span>
+          <span class="w-weight">12%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:60%"></div></span>
+        </div>
+        <div class="weights-row">
+          <span class="w-exchange">Bybit</span>
+          <span class="w-pair">BTC/USDT</span>
+          <span class="w-weight">12%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:60%"></div></span>
+        </div>
+        <div class="weights-row">
+          <span class="w-exchange">Bybit</span>
+          <span class="w-pair">BTC/USDC</span>
+          <span class="w-weight">8%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:40%"></div></span>
+        </div>
+        <div class="weights-row">
+          <span class="w-exchange">Kraken</span>
+          <span class="w-pair">BTC/USDT</span>
+          <span class="w-weight">8%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:40%"></div></span>
+        </div>
+        <div class="weights-row">
+          <span class="w-exchange">Bitfinex</span>
+          <span class="w-pair">BTC/USD</span>
+          <span class="w-weight">8%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:40%"></div></span>
+        </div>
+        <div class="weights-row">
+          <span class="w-exchange">KuCoin</span>
+          <span class="w-pair">BTC/USDT</span>
+          <span class="w-weight">7%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:35%"></div></span>
+        </div>
+        <div class="weights-row">
+          <span class="w-exchange">Gemini</span>
+          <span class="w-pair">BTC/USD</span>
+          <span class="w-weight">7%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:35%"></div></span>
+        </div>
+        <div class="weights-row">
+          <span class="w-exchange">Gate.io</span>
+          <span class="w-pair">BTC/USDT</span>
+          <span class="w-weight">7%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:35%"></div></span>
+        </div>
+        <div class="weights-row">
+          <span class="w-exchange">Crypto.com</span>
+          <span class="w-pair">BTC/USD-PERP</span>
+          <span class="w-weight">7%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:35%"></div></span>
+        </div>
+        <div class="weights-row">
+          <span class="w-exchange">Kraken</span>
+          <span class="w-pair">BTC/USDC</span>
+          <span class="w-weight">4%</span>
+          <span class="w-bar-wrap"><div class="w-bar" style="width:20%"></div></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Use Cases -->
+    <div class="section">
+      <div class="section-label">Applications</div>
+      <h2>Use cases</h2>
+      <p>A reliable, exchange-neutral reference price is foundational infrastructure for the next generation of financial products.</p>
+
+      <div class="use-cases">
+        <div class="use-case">
+          <div class="use-case-icon">&#8693;</div>
+          <div>
+            <h3>Binary Options & Prediction Markets</h3>
+            <p>Power "up or down" style markets that need a tamper-resistant settlement price not controlled by any single exchange.</p>
+          </div>
+        </div>
+        <div class="use-case">
+          <div class="use-case-icon">&#9878;</div>
+          <div>
+            <h3>Derivatives Settlement</h3>
+            <p>Settle perpetual futures, options contracts, and structured products against a fair mid-market reference to prevent manipulation.</p>
+          </div>
+        </div>
+        <div class="use-case">
+          <div class="use-case-icon">&#9881;</div>
+          <div>
+            <h3>DeFi Oracle Feed</h3>
+            <p>Serve as the off-chain data source for on-chain oracles, providing smart contracts with reliable, multi-source pricing.</p>
+          </div>
+        </div>
+        <div class="use-case">
+          <div class="use-case-icon">&#8644;</div>
+          <div>
+            <h3>Arbitrage Detection</h3>
+            <p>Compare individual exchange prices against the consensus mid to identify spreads and arbitrage opportunities in real time.</p>
+          </div>
+        </div>
+        <div class="use-case">
+          <div class="use-case-icon">&#9632;</div>
+          <div>
+            <h3>Portfolio Valuation</h3>
+            <p>Mark-to-market BTC holdings using a single neutral price rather than depending on one exchange's potentially stale or skewed book.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta-section">
+      <h2>Try the live Up/Down market</h2>
+      <p>Watch the aggregated price in real time and place simulated bets on whether BTC will be higher or lower at the next minute mark.</p>
+      <a href="updown.html" class="cta-btn">
+        Open Up/Down <span class="arrow">&rarr;</span>
+      </a>
+    </div>
+
+    <footer>CEX MID PRICE &middot; REAL-TIME AGGREGATED BTC REFERENCE</footer>
+  </div>
+
+  <script src="js/index.js"></script>
+</body>
+</html>

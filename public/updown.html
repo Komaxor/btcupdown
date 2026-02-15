@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Up/Down — CEX Mid Price</title>
+  <script async src="https://telegram.org/js/telegram-widget.js?22"
+    data-telegram-login="cexmidpricebot"
+    data-size="medium"
+    data-radius="8"
+    data-userpic="false"
+    data-onauth="onTelegramAuth(user)"
+    data-request-access="write">
+  </script>
+  <link rel="stylesheet" href="css/common.css">
+  <link rel="stylesheet" href="css/updown.css">
+</head>
+<body>
+  <div class="top-nav">
+    <a href="index.html" class="nav-logo">CEX <span>Mid Price</span></a>
+    <div class="nav-right">
+      <a href="index.html" class="nav-back">&larr; Home</a>
+      <div id="telegramLoginBtn"></div>
+      <div id="userInfo">
+        <img id="userAvatar" src="" alt="">
+        <span id="userName"></span>
+        <span id="userBalanceDisplay"></span>
+        <button id="logoutBtn">Logout</button>
+      </div>
+    </div>
+  </div>
+  <div class="main-layout">
+    <div class="left-panel">
+      <div class="header">
+        <div class="btc-logo">₿</div>
+        <div class="header-main">
+          <div class="header-top">
+            <div class="event-title">Bitcoin Up or Down</div>
+            <div class="header-icons">
+              <span class="header-icon">⛓</span>
+              <span class="header-icon">🔖</span>
+            </div>
+          </div>
+          <div class="event-time" id="eventTime">January 22, 3:45-4PM ET</div>
+          <div class="price-row">
+            <div class="price-block">
+              <div class="price-label">Price to Beat</div>
+              <div class="price-value beat" id="priceToBeat">$--</div>
+            </div>
+            <div class="price-block">
+              <div class="price-label-with-diff">
+                <span class="price-label">Current Price</span>
+                <span class="price-diff-small" id="priceDiff"></span>
+              </div>
+              <div class="price-value current" id="price">$--</div>
+            </div>
+            <div class="countdown-block">
+              <div class="countdown-unit">
+                <div class="countdown-value" id="countdownMins">--</div>
+                <div class="countdown-label">Mins</div>
+              </div>
+              <div class="countdown-unit">
+                <div class="countdown-value" id="countdownSecs">--</div>
+                <div class="countdown-label">Secs</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-container" id="chartContainer">
+        <div class="status">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">Connecting...</span>
+        </div>
+        <div class="y-axis">
+          <div class="y-label max" id="maxPrice">--</div>
+          <div class="y-label current" id="currentPriceLabel">--</div>
+          <div class="y-label min" id="minPrice">--</div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chart"></canvas>
+          <div class="tooltip" id="tooltip"></div>
+        </div>
+        <div class="time-axis" id="timeAxis"></div>
+      </div>
+
+      <div class="outcomes-section">
+        <div class="outcomes-header">Previous Outcomes</div>
+        <div class="outcomes-list" id="outcomesList"></div>
+      </div>
+
+      <div class="data-feed" id="dataFeed">
+        <div class="data-feed-header">
+          <span>Chart Data (1s intervals)</span>
+          <span class="ws-status" id="wsStatus">--</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="bet-panel">
+        <!-- Tabs: Buy / Sell + Order Type Dropdown -->
+        <div class="bet-tabs">
+          <button class="bet-tab active" id="tabBuy">Buy</button>
+          <button class="bet-tab" id="tabSell">Sell</button>
+          <div class="bet-order-type">
+            <button class="order-type-btn" id="orderTypeBtn">
+              <span id="orderTypeLabel">Market</span>
+              <span>▾</span>
+            </button>
+            <div class="order-dropdown" id="orderDropdown">
+              <div class="order-option selected" data-type="market">Market</div>
+              <div class="order-option" data-type="limit">Limit</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Yes / No Outcome Buttons -->
+        <div class="outcome-buttons">
+          <button class="outcome-btn yes selected" id="btnYes">
+            Yes <span class="outcome-price" id="yesPrice">50¢</span>
+          </button>
+          <button class="outcome-btn no" id="btnNo">
+            No <span class="outcome-price" id="noPrice">50¢</span>
+          </button>
+        </div>
+
+        <!-- Limit Price (only for Limit orders) -->
+        <div class="bet-section limit-section" id="limitSection">
+          <div class="bet-label">Limit Price</div>
+          <div class="limit-price-control">
+            <button class="limit-btn" id="limitMinus">−</button>
+            <div class="limit-value"><span id="limitValue">50</span>¢</div>
+            <button class="limit-btn" id="limitPlus">+</button>
+          </div>
+        </div>
+
+        <!-- Shares Input -->
+        <div class="bet-section">
+          <div class="bet-label">Shares</div>
+          <div class="shares-input-wrap">
+            <input type="number" class="shares-input" id="sharesInput" placeholder="0" value="">
+          </div>
+          <!-- Quick buttons for Limit orders -->
+          <div class="quick-buttons limit-section" id="limitQuickBtns">
+            <button class="quick-btn" data-delta="-100">-100</button>
+            <button class="quick-btn" data-delta="-10">-10</button>
+            <button class="quick-btn" data-delta="10">+10</button>
+            <button class="quick-btn" data-delta="100">+100</button>
+            <button class="quick-btn accent" data-delta="200">+200</button>
+          </div>
+          <!-- Quick buttons for Market orders -->
+          <div class="quick-buttons market-section show" id="marketQuickBtns">
+            <button class="quick-btn" data-pct="25">25%</button>
+            <button class="quick-btn" data-pct="50">50%</button>
+            <button class="quick-btn" data-pct="100">Max</button>
+          </div>
+        </div>
+
+        <!-- Expiration Toggle (only for Limit) -->
+        <div class="expiry-row limit-section" id="expirySection">
+          <span class="expiry-label">Set Expiration</span>
+          <div class="toggle-switch" id="expiryToggle"></div>
+        </div>
+
+        <!-- Summary -->
+        <div class="bet-summary">
+          <div class="summary-row">
+            <span class="summary-label">Total</span>
+            <span class="summary-value" id="totalValue">$0</span>
+          </div>
+          <div class="summary-row to-win-row">
+            <span class="summary-label">To win <span class="info-icon">i</span></span>
+            <span class="to-win-value">💵 <span id="toWinValue">$0</span></span>
+          </div>
+        </div>
+
+        <button class="trade-btn" id="tradeBtn">Trade</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/updown.js"></script>
+</body>
+</html>

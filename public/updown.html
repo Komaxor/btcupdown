@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Up/Down — CEX Mid Price</title>
-  <link rel="stylesheet" href="css/common.css">
-  <link rel="stylesheet" href="css/updown.css">
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/updown.css">
 </head>
 <body>
   <div class="top-nav">
@@ -45,14 +45,16 @@
           <div class="header-top">
             <div class="event-title">Bitcoin Up or Down</div>
             <div class="countdown-block">
-              <div class="countdown-unit">
+              <div class="countdown-phase" id="countdownPhase"></div>
+              <div class="countdown-unit" id="countdownMinsUnit">
                 <div class="countdown-value" id="countdownMins">--</div>
                 <div class="countdown-label">Mins</div>
               </div>
-              <div class="countdown-unit">
+              <div class="countdown-unit" id="countdownSecsUnit">
                 <div class="countdown-value" id="countdownSecs">--</div>
                 <div class="countdown-label">Secs</div>
               </div>
+              <div class="countdown-closed" id="countdownClosed" style="display:none;">CLOSED</div>
             </div>
           </div>
           <div class="event-time" id="eventTime">January 22, 3:45-4PM ET</div>
@@ -69,6 +71,14 @@
               <div class="price-value current" id="price">$--</div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Go to Current Market overlay (shown when viewing closed market) -->
+      <div class="go-current-overlay" id="goCurrentOverlay" style="display:none;">
+        <div class="go-current-overlay-inner">
+          <div class="go-current-overlay-text">This market has closed</div>
+          <a class="trade-btn go-current-btn" id="overlayGoCurrentBtn" href="/market/">Go to Current Market</a>
         </div>
       </div>
 
@@ -92,6 +102,44 @@
       <div class="outcomes-section">
         <div class="outcomes-header">Previous Outcomes</div>
         <div class="outcomes-list" id="outcomesList"></div>
+      </div>
+
+      <!-- Open Orders (visible only when user has active orders) -->
+      <div class="open-orders-section" id="openOrdersSection" style="display:none;">
+        <div class="open-orders-header">
+          <span>Open Orders</span>
+          <span class="open-orders-count" id="openOrdersCount"></span>
+        </div>
+        <div class="open-orders-list" id="openOrdersList"></div>
+      </div>
+
+      <!-- Order Book -->
+      <div class="orderbook-section" id="orderbookSection">
+        <div class="orderbook-header">
+          <div class="orderbook-title">
+            <span>Order Book</span>
+            <span class="orderbook-volume" id="orderbookVolume"></span>
+          </div>
+          <button class="orderbook-collapse-btn" id="orderbookCollapseBtn">&#9662;</button>
+        </div>
+        <div class="orderbook-body" id="orderbookBody">
+          <div class="orderbook-tabs">
+            <button class="orderbook-tab active" id="obTabUp">Trade Up</button>
+            <button class="orderbook-tab" id="obTabDown">Trade Down</button>
+          </div>
+          <div class="orderbook-columns">
+            <span class="ob-col-label ob-col-depth"></span>
+            <span class="ob-col-label ob-col-price">PRICE</span>
+            <span class="ob-col-label ob-col-shares">SHARES</span>
+            <span class="ob-col-label ob-col-total">TOTAL</span>
+          </div>
+          <div class="orderbook-asks" id="orderbookAsks"></div>
+          <div class="orderbook-spread" id="orderbookSpread">
+            <span class="spread-last" id="spreadLast">Last: --</span>
+            <span class="spread-value" id="spreadValue">Spread: --</span>
+          </div>
+          <div class="orderbook-bids" id="orderbookBids"></div>
+        </div>
       </div>
 
       <div class="data-feed" id="dataFeed">
@@ -174,7 +222,7 @@
         </div>
 
         <!-- Expiration Toggle (only for Limit) -->
-        <div class="expiry-row limit-section" id="expirySection">
+        <div class="expiry-row limit-section disabled" id="expirySection" title="Coming soon">
           <span class="expiry-label">Set Expiration</span>
           <div class="toggle-switch" id="expiryToggle"></div>
         </div>
@@ -193,10 +241,65 @@
 
         <button class="trade-btn" id="tradeBtn">Trade</button>
       </div>
+
+      <!-- Liquidity Panel (provision phase) -->
+      <div class="liquidity-panel" id="liquidityPanel" style="display:none;">
+        <div class="lp-header">Add Liquidity</div>
+        <div class="lp-market-info">
+          <span class="lp-slug" id="lpSlug"></span>
+          <span class="lp-countdown" id="lpCountdown"></span>
+        </div>
+        <div class="lp-desc">Deposit $X to receive X Up + X Down shares for market making.</div>
+        <div class="bet-section">
+          <div class="bet-label">Amount ($)</div>
+          <div class="shares-input-wrap">
+            <input type="number" class="shares-input" id="lpAmountInput" placeholder="0" min="1" step="1">
+          </div>
+          <div class="quick-buttons show">
+            <button class="quick-btn lp-quick" data-amount="10">$10</button>
+            <button class="quick-btn lp-quick" data-amount="50">$50</button>
+            <button class="quick-btn lp-quick" data-amount="100">$100</button>
+          </div>
+        </div>
+        <div class="lp-position" id="lpPosition" style="display:none;">
+          <span class="lp-pos-label">Your Position</span>
+          <span class="lp-pos-value" id="lpPosValue"></span>
+        </div>
+        <button class="trade-btn" id="lpSubmitBtn">Add Liquidity</button>
+        <a class="trade-btn go-current-btn" id="lpGoCurrentBtn" href="/market/">Go to Current Market</a>
+      </div>
+
+      <!-- Closed Panel -->
+      <div class="closed-panel" id="closedPanel" style="display:none;">
+        <div class="closed-header">Market Closed</div>
+        <div class="closed-info" id="closedInfo">
+          <div class="closed-row">
+            <span class="closed-label">Price to beat</span>
+            <span class="closed-val" id="closedPriceToBeat">--</span>
+          </div>
+          <div class="closed-row">
+            <span class="closed-label">Price at end</span>
+            <span class="closed-val" id="closedFinalPrice">--</span>
+          </div>
+          <div class="closed-row">
+            <span class="closed-label">Outcome</span>
+            <span class="closed-val closed-outcome-badge" id="closedOutcomeBadge">--</span>
+          </div>
+        </div>
+        <div class="closed-position" id="closedPosition"></div>
+        <button class="trade-btn" id="claimBtn" style="display:none;">Claim</button>
+        <a class="trade-btn go-current-btn" id="closedGoCurrentBtn" href="/market/">Go to Current Market</a>
+      </div>
+
+      <!-- Markets Section -->
+      <div class="markets-section" id="marketsSection">
+        <div class="markets-header">Upcoming Markets</div>
+        <div class="markets-list" id="marketsList"></div>
+      </div>
     </div>
   </div>
 
-  <script src="js/auth.js"></script>
-  <script src="js/updown.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/updown.js"></script>
 </body>
 </html>

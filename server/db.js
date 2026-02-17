@@ -35,13 +35,32 @@ async function init() {
     CREATE TABLE IF NOT EXISTS btc_1m_outcomes (
       id BIGSERIAL PRIMARY KEY,
       minute_start TIMESTAMPTZ NOT NULL,
-      price_to_beat NUMERIC(12,2) NOT NULL,
+      slug TEXT,
+      price_to_beat NUMERIC(12,2),
       final_price NUMERIC(12,2),
       outcome TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_btc_1m_outcomes_minute
       ON btc_1m_outcomes (minute_start);
+
+    CREATE TABLE IF NOT EXISTS positions (
+      user_id BIGINT NOT NULL REFERENCES users(id),
+      round_start TIMESTAMPTZ NOT NULL,
+      yes_shares INTEGER NOT NULL DEFAULT 0,
+      no_shares INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, round_start)
+    );
+
+    CREATE TABLE IF NOT EXISTS liquidity_provisions (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES users(id),
+      round_start TIMESTAMPTZ NOT NULL,
+      amount INTEGER NOT NULL CHECK (amount > 0),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_lp_round
+      ON liquidity_provisions (round_start);
 
     CREATE TABLE IF NOT EXISTS orders (
       id BIGSERIAL PRIMARY KEY,
@@ -80,7 +99,29 @@ async function init() {
     CREATE INDEX IF NOT EXISTS idx_trades_yes_user ON trades (yes_user_id);
     CREATE INDEX IF NOT EXISTS idx_trades_no_user ON trades (no_user_id);
   `);
-  console.log('Database initialized (price_history + users + btc_1m_outcomes + orders + trades tables ready)');
+
+  // Migrations for existing databases
+  await pool.query(`
+    ALTER TABLE btc_1m_outcomes ADD COLUMN IF NOT EXISTS slug TEXT;
+  `);
+  await pool.query(`
+    ALTER TABLE btc_1m_outcomes ALTER COLUMN price_to_beat DROP NOT NULL;
+  `);
+
+  // Backfill slugs for existing rows that don't have one
+  await pool.query(`
+    UPDATE btc_1m_outcomes
+    SET slug = 'btc-' || TO_CHAR(minute_start AT TIME ZONE 'UTC', 'YYYYMMDD-HH24MI')
+    WHERE slug IS NULL
+  `);
+
+  // Create slug index after column is guaranteed to exist
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_btc_1m_outcomes_slug
+      ON btc_1m_outcomes (slug);
+  `);
+
+  console.log('Database initialized (price_history + users + btc_1m_outcomes + orders + trades + positions + liquidity_provisions tables ready)');
 }
 
 async function insertPrice(price, sourceCount, timestamp) {
@@ -140,8 +181,76 @@ async function insertMinuteStart(minuteStart, priceToBeat) {
     `INSERT INTO btc_1m_outcomes (minute_start, price_to_beat)
      VALUES ($1, $2)
      ON CONFLICT (minute_start) DO NOTHING`,
+    [new Date(minuteStart), priceToBeat ? priceToBeat.toFixed(2) : null]
+  );
+}
+
+async function insertMarket(minuteStart, slug) {
+  await pool.query(
+    `INSERT INTO btc_1m_outcomes (minute_start, slug)
+     VALUES ($1, $2)
+     ON CONFLICT (minute_start) DO NOTHING`,
+    [new Date(minuteStart), slug]
+  );
+}
+
+async function updatePriceToBeat(minuteStart, priceToBeat) {
+  await pool.query(
+    `UPDATE btc_1m_outcomes
+     SET price_to_beat = $2
+     WHERE minute_start = $1 AND price_to_beat IS NULL`,
     [new Date(minuteStart), priceToBeat.toFixed(2)]
   );
+}
+
+async function getMarketBySlug(slug) {
+  const result = await pool.query(
+    `SELECT minute_start, slug, price_to_beat, final_price, outcome, created_at
+     FROM btc_1m_outcomes WHERE slug = $1`,
+    [slug]
+  );
+  if (!result.rows[0]) return null;
+  const row = result.rows[0];
+  return {
+    minuteStart: new Date(row.minute_start).getTime(),
+    slug: row.slug,
+    priceToBeat: row.price_to_beat ? parseFloat(row.price_to_beat) : null,
+    finalPrice: row.final_price ? parseFloat(row.final_price) : null,
+    outcome: row.outcome,
+    createdAt: new Date(row.created_at).getTime()
+  };
+}
+
+async function getActiveMarkets() {
+  const result = await pool.query(
+    `SELECT minute_start, slug, price_to_beat, outcome
+     FROM btc_1m_outcomes
+     WHERE outcome IS NULL
+     ORDER BY minute_start ASC`
+  );
+  return result.rows.map(row => ({
+    minuteStart: new Date(row.minute_start).getTime(),
+    slug: row.slug,
+    priceToBeat: row.price_to_beat ? parseFloat(row.price_to_beat) : null,
+    outcome: row.outcome
+  }));
+}
+
+async function getAllMarkets(limit = 20) {
+  const result = await pool.query(
+    `SELECT minute_start, slug, price_to_beat, final_price, outcome
+     FROM btc_1m_outcomes
+     ORDER BY minute_start DESC
+     LIMIT $1`,
+    [limit]
+  );
+  return result.rows.map(row => ({
+    minuteStart: new Date(row.minute_start).getTime(),
+    slug: row.slug,
+    priceToBeat: row.price_to_beat ? parseFloat(row.price_to_beat) : null,
+    finalPrice: row.final_price ? parseFloat(row.final_price) : null,
+    outcome: row.outcome
+  }));
 }
 
 async function completeMinuteOutcome(minuteStart, finalPrice) {
@@ -175,4 +284,4 @@ async function close() {
   console.log('Database pool closed');
 }
 
-module.exports = { pool, init, insertPrice, getRecentPrices, upsertUser, getUser, updateBalance, insertMinuteStart, completeMinuteOutcome, getRecentOutcomes, close };
+module.exports = { pool, init, insertPrice, getRecentPrices, upsertUser, getUser, updateBalance, insertMinuteStart, insertMarket, updatePriceToBeat, getMarketBySlug, getActiveMarkets, getAllMarkets, completeMinuteOutcome, getRecentOutcomes, close };

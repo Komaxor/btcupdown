@@ -256,33 +256,106 @@ async function getOrderTrades(orderId) {
   return result.rows;
 }
 
+// ============================================
+// POSITION OPERATIONS
+// ============================================
+
 /**
- * Get aggregated positions per user for a settled round.
- * Returns the net YES and NO shares each user holds from trades.
- * @param {string} roundStart - Round start timestamp
+ * Upsert a user's position for a round. Atomically adds to yes/no shares.
+ * @param {number} userId
+ * @param {number|string} roundStart - Round start timestamp (ms or ISO)
+ * @param {number} yesDelta - Shares to add to yes_shares (can be 0)
+ * @param {number} noDelta - Shares to add to no_shares (can be 0)
  * @param {import('pg').PoolClient} client - Transaction client (required)
- * @returns {Promise<Array<{user_id: number, yes_shares: number, no_shares: number}>>}
+ * @returns {Promise<{yesShares: number, noShares: number}>} Updated position
  */
-async function getRoundPositions(roundStart, client) {
+async function upsertPosition(userId, roundStart, yesDelta, noDelta, client) {
   const result = await client.query(
-    `SELECT user_id, SUM(yes_shares) AS yes_shares, SUM(no_shares) AS no_shares
-     FROM (
-       SELECT yes_user_id AS user_id, SUM(shares) AS yes_shares, 0 AS no_shares
-       FROM trades WHERE round_start = $1
-       GROUP BY yes_user_id
-       UNION ALL
-       SELECT no_user_id AS user_id, 0 AS yes_shares, SUM(shares) AS no_shares
-       FROM trades WHERE round_start = $1
-       GROUP BY no_user_id
-     ) sub
-     GROUP BY user_id`,
+    `INSERT INTO positions (user_id, round_start, yes_shares, no_shares)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (user_id, round_start) DO UPDATE SET
+       yes_shares = positions.yes_shares + $3,
+       no_shares = positions.no_shares + $4
+     RETURNING yes_shares, no_shares`,
+    [userId, new Date(roundStart), yesDelta, noDelta]
+  );
+  return {
+    yesShares: result.rows[0].yes_shares,
+    noShares: result.rows[0].no_shares
+  };
+}
+
+/**
+ * Get a user's position for a round.
+ * @param {number} userId
+ * @param {number|string} roundStart
+ * @param {import('pg').PoolClient} [client]
+ * @returns {Promise<{yesShares: number, noShares: number}>}
+ */
+async function getPosition(userId, roundStart, client) {
+  const conn = client || pool;
+  const result = await conn.query(
+    'SELECT yes_shares, no_shares FROM positions WHERE user_id = $1 AND round_start = $2',
+    [userId, new Date(roundStart)]
+  );
+  if (!result.rows[0]) return { yesShares: 0, noShares: 0 };
+  return {
+    yesShares: result.rows[0].yes_shares,
+    noShares: result.rows[0].no_shares
+  };
+}
+
+/**
+ * Get all positions for a round (for settlement).
+ * @param {number|string} roundStart
+ * @param {import('pg').PoolClient} client
+ * @returns {Promise<Array<{userId: number, yesShares: number, noShares: number}>>}
+ */
+async function getAllPositions(roundStart, client) {
+  const result = await client.query(
+    'SELECT user_id, yes_shares, no_shares FROM positions WHERE round_start = $1',
     [new Date(roundStart)]
   );
   return result.rows.map(r => ({
     userId: Number(r.user_id),
-    yesShares: Number(r.yes_shares),
-    noShares: Number(r.no_shares)
+    yesShares: r.yes_shares,
+    noShares: r.no_shares
   }));
+}
+
+// ============================================
+// LIQUIDITY PROVISION OPERATIONS
+// ============================================
+
+/**
+ * Record a liquidity provision.
+ * @param {number} userId
+ * @param {number|string} roundStart
+ * @param {number} amount - Integer dollar amount
+ * @param {import('pg').PoolClient} client
+ * @returns {Promise<object>} Inserted row
+ */
+async function insertLiquidityProvision(userId, roundStart, amount, client) {
+  const result = await client.query(
+    `INSERT INTO liquidity_provisions (user_id, round_start, amount)
+     VALUES ($1, $2, $3)
+     RETURNING *`,
+    [userId, new Date(roundStart), amount]
+  );
+  return result.rows[0];
+}
+
+/**
+ * Get total liquidity for a round.
+ * @param {number|string} roundStart
+ * @returns {Promise<number>} Total dollar amount
+ */
+async function getTotalLiquidity(roundStart) {
+  const result = await pool.query(
+    'SELECT COALESCE(SUM(amount), 0) AS total FROM liquidity_provisions WHERE round_start = $1',
+    [new Date(roundStart)]
+  );
+  return Number(result.rows[0].total);
 }
 
 // ============================================
@@ -356,7 +429,11 @@ module.exports = {
   activateStopOrder,
   insertTrade,
   getOrderTrades,
-  getRoundPositions,
+  upsertPosition,
+  getPosition,
+  getAllPositions,
+  insertLiquidityProvision,
+  getTotalLiquidity,
   deductBalance,
   creditBalance,
   getBalanceForUpdate,

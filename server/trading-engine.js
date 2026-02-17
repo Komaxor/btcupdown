@@ -40,6 +40,24 @@ class TradingEngine {
 
     /** @type {Map<number, BookEntry[]>} roundStart → pending stop-limit orders */
     this.stops = new Map();
+
+    /** @type {Map<number, number|null>} roundStart → last execution price */
+    this.lastTradePrice = new Map();
+
+    /** @type {Map<number, number>} roundStart → total shares traded */
+    this.roundVolume = new Map();
+
+    /** @type {Map<number, string>} roundStart → phase ('provision'|'active'|'closed') */
+    this.phases = new Map();
+  }
+
+  /**
+   * Set the phase for a round. Used by the lifecycle manager.
+   * @param {number} roundStart
+   * @param {string} phase - 'provision', 'active', or 'closed'
+   */
+  setPhase(roundStart, phase) {
+    this.phases.set(roundStart, phase);
   }
 
   // ============================================
@@ -92,6 +110,8 @@ class TradingEngine {
     if (!this.books.has(roundStart)) {
       this.books.set(roundStart, { bids: [], asks: [] });
       this.stops.set(roundStart, []);
+      this.lastTradePrice.set(roundStart, null);
+      this.roundVolume.set(roundStart, 0);
     }
   }
 
@@ -155,7 +175,7 @@ class TradingEngine {
    */
   getOrderBook(roundStart) {
     const book = this.books.get(roundStart);
-    if (!book) return { bids: [], asks: [] };
+    if (!book) return { bids: [], asks: [], lastTradePrice: null, volume: 0 };
 
     const aggregate = (arr) => {
       const levels = new Map();
@@ -165,7 +185,12 @@ class TradingEngine {
       return Array.from(levels.entries()).map(([price, totalShares]) => ({ price, totalShares }));
     };
 
-    return { bids: aggregate(book.bids), asks: aggregate(book.asks) };
+    return {
+      bids: aggregate(book.bids),
+      asks: aggregate(book.asks),
+      lastTradePrice: this.lastTradePrice.get(roundStart) || null,
+      volume: this.roundVolume.get(roundStart) || 0
+    };
   }
 
   // ============================================
@@ -185,6 +210,8 @@ class TradingEngine {
   validateParams(userId, roundStart, side, outcome, shares, price) {
     if (!userId) return 'Not authenticated';
     if (!roundStart) return 'No active round';
+    const phase = this.phases.get(roundStart);
+    if (phase && phase !== 'active') return 'Market not in trading phase';
     if (!['buy', 'sell'].includes(side)) return 'Invalid side';
     if (!['yes', 'no'].includes(outcome)) return 'Invalid outcome';
     if (!Number.isInteger(shares) || shares <= 0) return 'Shares must be a positive integer';
@@ -274,6 +301,10 @@ class TradingEngine {
         price: execPrice, shares: fillQty
       }, client);
 
+      // Update positions for both parties
+      await dbTrading.upsertPosition(yesUserId, roundStart, fillQty, 0, client);
+      await dbTrading.upsertPosition(noUserId, roundStart, 0, fillQty, client);
+
       // Update resting order
       await dbTrading.updateOrderFill(resting.id, fillQty, client);
       resting.remainingShares -= fillQty;
@@ -283,6 +314,10 @@ class TradingEngine {
       remainingShares -= fillQty;
 
       fills.push(trade);
+
+      // Track last trade price and volume
+      this.lastTradePrice.set(roundStart, execPrice);
+      this.roundVolume.set(roundStart, (this.roundVolume.get(roundStart) || 0) + fillQty);
 
       // Notify resting order owner
       const restingUpdated = await dbTrading.getOrder(resting.id, client);
@@ -887,8 +922,8 @@ class TradingEngine {
         }
       }
 
-      // 2. Get positions per user
-      const positions = await dbTrading.getRoundPositions(roundStart, client);
+      // 2. Get positions per user (includes LP shares + trade-derived shares)
+      const positions = await dbTrading.getAllPositions(roundStart, client);
 
       // 3. Pay out winning shares
       const yesWins = winningOutcome === 'up';
@@ -922,6 +957,9 @@ class TradingEngine {
       // 4. Clear in-memory state
       this.books.delete(roundStart);
       this.stops.delete(roundStart);
+      this.lastTradePrice.delete(roundStart);
+      this.roundVolume.delete(roundStart);
+      this.phases.delete(roundStart);
 
       return payouts;
     } catch (e) {

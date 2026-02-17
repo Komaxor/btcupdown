@@ -26,13 +26,46 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS btc_1m_outcomes (
   id BIGSERIAL PRIMARY KEY,
   minute_start TIMESTAMPTZ NOT NULL,
-  price_to_beat NUMERIC(12,2) NOT NULL,
+  slug TEXT,
+  price_to_beat NUMERIC(12,2),
   final_price NUMERIC(12,2),
   outcome TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_btc_1m_outcomes_minute
   ON btc_1m_outcomes (minute_start);
+
+-- Migration: add slug column if upgrading from old schema
+ALTER TABLE btc_1m_outcomes ADD COLUMN IF NOT EXISTS slug TEXT;
+
+-- Backfill slugs for existing rows
+UPDATE btc_1m_outcomes
+SET slug = 'btc-' || TO_CHAR(minute_start AT TIME ZONE 'UTC', 'YYYYMMDD-HH24MI')
+WHERE slug IS NULL;
+
+-- Make price_to_beat nullable if upgrading from old schema
+ALTER TABLE btc_1m_outcomes ALTER COLUMN price_to_beat DROP NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_btc_1m_outcomes_slug
+  ON btc_1m_outcomes (slug);
+
+CREATE TABLE IF NOT EXISTS positions (
+  user_id BIGINT NOT NULL REFERENCES users(id),
+  round_start TIMESTAMPTZ NOT NULL,
+  yes_shares INTEGER NOT NULL DEFAULT 0,
+  no_shares INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, round_start)
+);
+
+CREATE TABLE IF NOT EXISTS liquidity_provisions (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id),
+  round_start TIMESTAMPTZ NOT NULL,
+  amount INTEGER NOT NULL CHECK (amount > 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_lp_round
+  ON liquidity_provisions (round_start);
 
 CREATE TABLE IF NOT EXISTS orders (
   id BIGSERIAL PRIMARY KEY,

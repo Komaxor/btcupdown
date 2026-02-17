@@ -28,6 +28,24 @@ let limitPrice = 50; // cents
 let stopPrice = 50; // cents (trigger price for stop-limit)
 let shares = 0;
 let expiryEnabled = false;
+
+// Order book state
+let obPerspective = 'up'; // 'up' or 'down'
+let obCollapsed = false;
+let orderbookData = { bids: [], asks: [], lastTradePrice: null, volume: 0 };
+let openOrders = [];
+let obRefreshInterval = null;
+
+// Market state
+let currentMarketSlug = null;   // slug of market being viewed
+let currentMarketPhase = null;  // 'provision' | 'active' | 'closed'
+let marketsList = [];            // [{ slug, minuteStart, phase, priceToBeat }]
+
+function getSlugFromURL() {
+  const match = location.pathname.match(/^\/market\/([a-z0-9-]+)$/);
+  return match ? match[1] : null;
+}
+
 // ============================================
 // AUTH (WS-specific — shared auth in auth.js)
 // ============================================
@@ -96,6 +114,20 @@ const totalValue = document.getElementById('totalValue');
 const toWinValue = document.getElementById('toWinValue');
 const tradeBtn = document.getElementById('tradeBtn');
 
+// Order book elements
+const openOrdersSection = document.getElementById('openOrdersSection');
+const openOrdersList = document.getElementById('openOrdersList');
+const openOrdersCount = document.getElementById('openOrdersCount');
+const orderbookBody = document.getElementById('orderbookBody');
+const orderbookAsks = document.getElementById('orderbookAsks');
+const orderbookBids = document.getElementById('orderbookBids');
+const orderbookVolume = document.getElementById('orderbookVolume');
+const orderbookCollapseBtn = document.getElementById('orderbookCollapseBtn');
+const obTabUp = document.getElementById('obTabUp');
+const obTabDown = document.getElementById('obTabDown');
+const spreadLast = document.getElementById('spreadLast');
+const spreadValue = document.getElementById('spreadValue');
+
 // ============================================
 // PRICE FONT-SIZE SCALER
 // ============================================
@@ -143,11 +175,17 @@ function updateBetUI() {
   // Update expiry toggle
   expiryToggle.classList.toggle('active', expiryEnabled);
 
-  // Calculate prices (mock: Yes + No = 100¢)
-  const yesP = 50; // In real app, this comes from market
+  // Calculate prices from orderbook best bid/ask
+  const bestBid = orderbookData.bids.length > 0
+    ? orderbookData.bids.reduce((max, b) => b.price > max ? b.price : max, 0)
+    : 50;
+  const bestAsk = orderbookData.asks.length > 0
+    ? orderbookData.asks.reduce((min, a) => a.price < min ? a.price : min, 100)
+    : 50;
+  const yesP = orderbookData.lastTradePrice || Math.round((bestBid + bestAsk) / 2) || 50;
   const noP = 100 - yesP;
-  yesPrice.textContent = yesP + '¢';
-  noPrice.textContent = noP + '¢';
+  yesPrice.textContent = yesP + '\u00A2';
+  noPrice.textContent = noP + '\u00A2';
 
   // Calculate total and potential win
   const pricePerShare = (orderType === 'limit' || orderType === 'stop_limit') ? limitPrice : (betOutcome === 'yes' ? yesP : noP);
@@ -229,7 +267,8 @@ limitQuickBtns.querySelectorAll('.quick-btn').forEach(btn => {
 marketQuickBtns.querySelectorAll('.quick-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const pct = parseInt(btn.dataset.pct);
-    const pricePerShare = betOutcome === 'yes' ? 50 : 50; // Mock price
+    const midPrice = orderbookData.lastTradePrice || 50;
+    const pricePerShare = betOutcome === 'yes' ? midPrice : (100 - midPrice);
     const maxShares = Math.floor((getUserBalance() * 100) / pricePerShare);
     shares = Math.floor(maxShares * pct / 100);
     sharesInput.value = shares || '';
@@ -239,6 +278,7 @@ marketQuickBtns.querySelectorAll('.quick-btn').forEach(btn => {
 
 // Expiry toggle
 expiryToggle.addEventListener('click', () => {
+  if (expirySection.classList.contains('disabled')) return;
   expiryEnabled = !expiryEnabled;
   updateBetUI();
 });
@@ -282,11 +322,384 @@ tradeBtn.addEventListener('click', () => {
     msg.stopPrice = stopPrice;
   }
 
+  // Include current market slug
+  if (currentMarketSlug) msg.slug = currentMarketSlug;
+
   wsConnection.send(JSON.stringify(msg));
 });
 
 // Initialize bet UI
 updateBetUI();
+
+// Liquidity panel handlers
+document.getElementById('lpSubmitBtn').addEventListener('click', () => {
+  if (!currentUser || !currentMarketSlug) return;
+  const amount = parseInt(document.getElementById('lpAmountInput').value);
+  if (!amount || amount <= 0) return;
+  if (!wsConnection || wsConnection.readyState !== WebSocket.OPEN) return;
+  wsConnection.send(JSON.stringify({ type: 'add_liquidity', slug: currentMarketSlug, amount }));
+});
+
+document.querySelectorAll('.lp-quick').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('lpAmountInput').value = btn.dataset.amount;
+  });
+});
+
+// ============================================
+// ORDER BOOK & OPEN ORDERS
+// ============================================
+function requestOrderBook() {
+  if (!wsConnection || wsConnection.readyState !== WebSocket.OPEN) return;
+  const msg = { type: 'get_orderbook' };
+  if (currentMarketSlug) msg.slug = currentMarketSlug;
+  wsConnection.send(JSON.stringify(msg));
+}
+
+function requestMyOrders() {
+  if (!wsConnection || wsConnection.readyState !== WebSocket.OPEN) return;
+  if (!currentUser) return;
+  const msg = { type: 'get_my_orders', status: 'open' };
+  if (currentMarketSlug) msg.slug = currentMarketSlug;
+  wsConnection.send(JSON.stringify(msg));
+}
+
+function renderOrderBook() {
+  let bids, asks;
+
+  if (obPerspective === 'up') {
+    bids = orderbookData.bids.map(b => ({ price: b.price, shares: b.totalShares }));
+    asks = orderbookData.asks.map(a => ({ price: a.price, shares: a.totalShares }));
+  } else {
+    // NO perspective: flip sides and invert prices
+    bids = orderbookData.asks.map(a => ({ price: 100 - a.price, shares: a.totalShares }));
+    asks = orderbookData.bids.map(b => ({ price: 100 - b.price, shares: b.totalShares }));
+    bids.sort((a, b) => b.price - a.price);
+    asks.sort((a, b) => a.price - b.price);
+  }
+
+  const allShares = [...bids.map(b => b.shares), ...asks.map(a => a.shares)];
+  const maxShares = Math.max(...allShares, 1);
+
+  // Asks: display highest price at top, lowest near spread
+  const asksDisplay = [...asks].reverse(); // highest first
+  let askCum = 0;
+  for (const a of asksDisplay) {
+    askCum += (a.shares * a.price) / 100;
+    a.cumTotal = askCum;
+  }
+
+  // Bids: display highest price at top (near spread)
+  let bidCum = 0;
+  for (const b of bids) {
+    bidCum += (b.shares * b.price) / 100;
+    b.cumTotal = bidCum;
+  }
+
+  orderbookAsks.innerHTML = asksDisplay.map(a => {
+    const depthW = (a.shares / maxShares * 100).toFixed(1);
+    return `<div class="ob-row ask" data-price="${a.price}">
+      <div class="ob-depth-bar" style="width:${depthW}%"></div>
+      <span class="ob-cell-depth"></span>
+      <span class="ob-cell-price">${a.price}\u00A2</span>
+      <span class="ob-cell-shares">${a.shares.toFixed(2)}</span>
+      <span class="ob-cell-total">$${a.cumTotal.toFixed(2)}</span>
+    </div>`;
+  }).join('');
+
+  orderbookBids.innerHTML = bids.map(b => {
+    const depthW = (b.shares / maxShares * 100).toFixed(1);
+    return `<div class="ob-row bid" data-price="${b.price}">
+      <div class="ob-depth-bar" style="width:${depthW}%"></div>
+      <span class="ob-cell-depth"></span>
+      <span class="ob-cell-price">${b.price}\u00A2</span>
+      <span class="ob-cell-shares">${b.shares.toFixed(2)}</span>
+      <span class="ob-cell-total">$${b.cumTotal.toFixed(2)}</span>
+    </div>`;
+  }).join('');
+
+  // Spread
+  const last = orderbookData.lastTradePrice;
+  if (last !== null) {
+    const displayLast = obPerspective === 'down' ? (100 - last) : last;
+    spreadLast.textContent = 'Last: ' + displayLast + '\u00A2';
+  } else {
+    spreadLast.textContent = 'Last: --';
+  }
+
+  const topBid = bids.length > 0 ? bids[0].price : null;
+  const lowAsk = asks.length > 0 ? asks[asks.length - 1].price : null;
+  if (topBid !== null && lowAsk !== null) {
+    const spread = lowAsk - topBid;
+    spreadValue.textContent = 'Spread: ' + (spread > 0 ? spread : 0) + '\u00A2';
+  } else {
+    spreadValue.textContent = 'Spread: --';
+  }
+
+  // Volume
+  const vol = orderbookData.volume || 0;
+  if (vol > 0) {
+    const dollarVol = vol; // shares traded
+    orderbookVolume.textContent = dollarVol >= 1000
+      ? '$' + (dollarVol / 1000).toFixed(1) + 'K Vol.'
+      : '$' + dollarVol + ' Vol.';
+  } else {
+    orderbookVolume.textContent = '';
+  }
+
+  updateBetUI();
+}
+
+function renderOpenOrders() {
+  if (!currentUser || openOrders.length === 0) {
+    openOrdersSection.style.display = 'none';
+    return;
+  }
+
+  openOrdersSection.style.display = '';
+  openOrdersCount.textContent = openOrders.length;
+
+  openOrdersList.innerHTML = openOrders.map(o => {
+    const sideClass = o.side === 'buy' ? 'buy' : 'sell';
+    const outcomeLabel = o.outcome === 'yes' ? 'Up' : 'Down';
+    const outcomeClass = o.outcome === 'yes' ? 'up' : 'down';
+    let displayPrice = o.price;
+    if ((o.side === 'buy' && o.outcome === 'no') || (o.side === 'sell' && o.outcome === 'no')) {
+      displayPrice = 100 - o.price;
+    }
+    const statusLabel = o.status === 'partially_filled' ? 'partial' : o.status;
+
+    return `<div class="open-order-row" data-order-id="${o.id}">
+      <span class="oo-side ${sideClass}">${o.side}</span>
+      <span class="oo-outcome ${outcomeClass}">${outcomeLabel}</span>
+      <span class="oo-price">${displayPrice}\u00A2</span>
+      <span class="oo-shares">${o.remainingShares} shr</span>
+      <span class="oo-status">${statusLabel}</span>
+      <button class="oo-cancel" onclick="cancelOpenOrder(${o.id})">Cancel</button>
+    </div>`;
+  }).join('');
+}
+
+function cancelOpenOrder(orderId) {
+  if (!wsConnection || wsConnection.readyState !== WebSocket.OPEN) return;
+  wsConnection.send(JSON.stringify({ type: 'cancel_order', orderId }));
+}
+
+// Order book tab handlers
+obTabUp.addEventListener('click', () => {
+  obPerspective = 'up';
+  obTabUp.classList.add('active');
+  obTabDown.classList.remove('active');
+  renderOrderBook();
+});
+
+obTabDown.addEventListener('click', () => {
+  obPerspective = 'down';
+  obTabDown.classList.add('active');
+  obTabUp.classList.remove('active');
+  renderOrderBook();
+});
+
+orderbookCollapseBtn.addEventListener('click', () => {
+  obCollapsed = !obCollapsed;
+  orderbookBody.classList.toggle('collapsed', obCollapsed);
+  orderbookCollapseBtn.classList.toggle('collapsed', obCollapsed);
+});
+
+// Click order book row to pre-fill limit order
+orderbookBody.addEventListener('click', (e) => {
+  const row = e.target.closest('.ob-row');
+  if (!row) return;
+  const price = parseInt(row.dataset.price);
+  if (!price) return;
+
+  orderType = 'limit';
+  limitPrice = price;
+  orderDropdown.querySelectorAll('.order-option').forEach(o => {
+    o.classList.toggle('selected', o.dataset.type === 'limit');
+  });
+  updateBetUI();
+});
+
+// ============================================
+// MARKET SELECTION & PANEL SWITCHING
+// ============================================
+function selectMarket(slug) {
+  console.log('[selectMarket]', slug); // DEBUG
+  currentMarketSlug = slug;
+  const m = marketsList.find(x => x.slug === slug);
+  currentMarketPhase = m ? m.phase : null;
+
+  // Update URL without full page reload
+  if (location.pathname !== '/market/' + slug) {
+    history.pushState(null, '', '/market/' + slug);
+  }
+
+  updateRightPanel();
+  renderMarketsList();
+  requestOrderBook();
+  requestMyOrders();
+
+  // Update header for selected market
+  if (m) {
+    updateEventTimeForMarket(m);
+    // Load price to beat from market data (covers URL navigation / late join)
+    if (m.priceToBeat) {
+      priceToBeat = parseFloat(m.priceToBeat);
+      priceToBeatEl.textContent = '$' + formatPrice(priceToBeat);
+    }
+  }
+}
+
+function updateRightPanel() {
+  const betPanel = document.querySelector('.bet-panel');
+  const lpPanel = document.getElementById('liquidityPanel');
+  const closedPanel = document.getElementById('closedPanel');
+  const goOverlay = document.getElementById('goCurrentOverlay');
+
+  betPanel.style.display = 'none';
+  lpPanel.style.display = 'none';
+  closedPanel.style.display = 'none';
+  goOverlay.style.display = 'none';
+
+  if (currentMarketPhase === 'provision') {
+    lpPanel.style.display = '';
+    document.getElementById('lpSlug').textContent = currentMarketSlug;
+    updateGoCurrentBtn(lpPanel);
+  } else if (currentMarketPhase === 'active') {
+    betPanel.style.display = '';
+  } else if (currentMarketPhase === 'closed') {
+    closedPanel.style.display = '';
+    updateClosedPanel();
+    updateGoCurrentBtn(closedPanel);
+    // Show go-to-current overlay on left panel
+    updateGoCurrentOverlay();
+  } else {
+    betPanel.style.display = '';
+  }
+}
+
+function updateGoCurrentBtn(panel) {
+  const active = marketsList.find(m => m.phase === 'active');
+  const btn = panel.querySelector('.go-current-btn');
+  if (!btn) return;
+  if (active && active.slug !== currentMarketSlug) {
+    btn.href = '/market/' + active.slug;
+    btn.style.display = '';
+    btn.onclick = (e) => {
+      e.preventDefault();
+      selectMarket(active.slug);
+    };
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+function updateClosedPanel() {
+  const m = marketsList.find(x => x.slug === currentMarketSlug);
+  const ptbEl = document.getElementById('closedPriceToBeat');
+  const fpEl = document.getElementById('closedFinalPrice');
+  const badgeEl = document.getElementById('closedOutcomeBadge');
+
+  if (m && m.priceToBeat) {
+    ptbEl.textContent = '$' + formatPrice(m.priceToBeat);
+  } else {
+    ptbEl.textContent = '--';
+  }
+
+  if (m && m.finalPrice) {
+    fpEl.textContent = '$' + formatPrice(m.finalPrice);
+  } else {
+    fpEl.textContent = '--';
+  }
+
+  if (m && m.outcome) {
+    badgeEl.textContent = m.outcome === 'up' ? 'Up' : 'Down';
+    badgeEl.className = 'closed-val closed-outcome-badge ' + (m.outcome === 'up' ? 'up' : 'down');
+  } else {
+    badgeEl.textContent = '--';
+    badgeEl.className = 'closed-val closed-outcome-badge';
+  }
+}
+
+function updateGoCurrentOverlay() {
+  const overlay = document.getElementById('goCurrentOverlay');
+  const btn = document.getElementById('overlayGoCurrentBtn');
+  const active = marketsList.find(m => m.phase === 'active');
+  if (active && active.slug !== currentMarketSlug) {
+    overlay.style.display = '';
+    btn.href = '/market/' + active.slug;
+    btn.onclick = (e) => {
+      e.preventDefault();
+      selectMarket(active.slug);
+    };
+  } else {
+    overlay.style.display = 'none';
+  }
+}
+
+function updateEventTimeForMarket(m) {
+  if (!m) return;
+  const d = new Date(m.minuteStart);
+  const month = d.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
+  const day = d.getUTCDate();
+  const h = d.getUTCHours();
+  const min = String(d.getUTCMinutes()).padStart(2, '0');
+  const endMin = (d.getUTCMinutes() + 1) % 60;
+  const endH = d.getUTCMinutes() === 59 ? h + 1 : h;
+  eventTimeEl.textContent = `${month} ${day}, ${h}:${min}-${endH}:${String(endMin).padStart(2, '0')} UTC`;
+}
+
+function renderMarketsList() {
+  const el = document.getElementById('marketsList');
+  if (!el) return;
+
+  // Show only active + provision markets, skip closed entirely
+  const visible = marketsList.filter(m => m.phase === 'active' || m.phase === 'provision');
+
+  // If multiple active markets exist, only keep the latest one as active
+  const activeMarkets = visible.filter(m => m.phase === 'active');
+  if (activeMarkets.length > 1) {
+    activeMarkets.sort((a, b) => b.minuteStart - a.minuteStart);
+    // Only the latest is truly active; demote older ones
+    for (let i = 1; i < activeMarkets.length; i++) {
+      activeMarkets[i].phase = 'closed';
+    }
+  }
+
+  const filtered = visible.filter(m => m.phase !== 'closed');
+  filtered.sort((a, b) => {
+    const order = { active: 0, provision: 1 };
+    return ((order[a.phase] ?? 2) - (order[b.phase] ?? 2)) || (a.minuteStart - b.minuteStart);
+  });
+
+  el.innerHTML = filtered.map(m => {
+    const time = new Date(m.minuteStart).toLocaleTimeString('en-US', {
+      hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC'
+    });
+    const selected = m.slug === currentMarketSlug ? 'selected' : '';
+    return `<a class="market-card ${m.phase} ${selected}" href="/market/${m.slug}">
+      <span class="mc-time">${time} UTC</span>
+      <span class="mc-phase ${m.phase}">${m.phase.toUpperCase()}</span>
+    </a>`;
+  }).join('');
+
+  el.querySelectorAll('.market-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      e.preventDefault();
+      const slug = new URL(card.href).pathname.split('/').pop();
+      selectMarket(slug);
+    });
+  });
+}
+
+// Handle browser back/forward
+window.addEventListener('popstate', () => {
+  const slug = getSlugFromURL();
+  if (slug && marketsList.find(m => m.slug === slug)) {
+    selectMarket(slug);
+  }
+});
 
 // ============================================
 // UTILITIES
@@ -336,13 +749,66 @@ function updatePriceDiff() {
 }
 
 function updateCountdown() {
-  const now = new Date();
-  const secsToNextMin = 60 - now.getSeconds();
-  const secsDisplay = secsToNextMin === 60 ? 0 : secsToNextMin;
+  const now = Date.now();
+  const m = currentMarketSlug ? marketsList.find(x => x.slug === currentMarketSlug) : null;
+  const phaseEl = document.getElementById('countdownPhase');
+  const closedEl = document.getElementById('countdownClosed');
+  const minsUnit = document.getElementById('countdownMinsUnit');
+  const secsUnit = document.getElementById('countdownSecsUnit');
+  const block = document.querySelector('.countdown-block');
 
-  // Show 00:XX countdown to next minute (when price to beat updates)
-  countdownMinsEl.textContent = '00';
-  countdownSecsEl.textContent = String(secsDisplay).padStart(2, '0');
+  if (m && currentMarketPhase === 'provision') {
+    // Show countdown + Provision label, green styling
+    minsUnit.style.display = '';
+    secsUnit.style.display = '';
+    closedEl.style.display = 'none';
+    phaseEl.textContent = 'Provision';
+    phaseEl.className = 'countdown-phase provision';
+    block.classList.add('provision');
+    block.classList.remove('active-phase');
+
+    const diff = Math.max(0, Math.floor((m.minuteStart - now) / 1000));
+    const mins = Math.floor(diff / 60);
+    const secs = diff % 60;
+    countdownMinsEl.textContent = String(mins).padStart(2, '0');
+    countdownSecsEl.textContent = String(secs).padStart(2, '0');
+    const lpCountdown = document.getElementById('lpCountdown');
+    if (lpCountdown) lpCountdown.textContent = mins + 'm ' + secs + 's until trading';
+  } else if (m && currentMarketPhase === 'active') {
+    // Show countdown + Active label
+    minsUnit.style.display = '';
+    secsUnit.style.display = '';
+    closedEl.style.display = 'none';
+    phaseEl.textContent = 'Active';
+    phaseEl.className = 'countdown-phase active';
+    block.classList.remove('provision');
+
+    const closeTime = m.minuteStart + 60000;
+    const diff = Math.max(0, Math.floor((closeTime - now) / 1000));
+    countdownMinsEl.textContent = '00';
+    countdownSecsEl.textContent = String(diff).padStart(2, '0');
+  } else if (m && currentMarketPhase === 'closed') {
+    // Show CLOSED instead of countdown
+    minsUnit.style.display = 'none';
+    secsUnit.style.display = 'none';
+    closedEl.style.display = '';
+    phaseEl.textContent = '';
+    phaseEl.className = 'countdown-phase';
+    block.classList.remove('provision');
+  } else {
+    // Fallback
+    minsUnit.style.display = '';
+    secsUnit.style.display = '';
+    closedEl.style.display = 'none';
+    phaseEl.textContent = '';
+    phaseEl.className = 'countdown-phase';
+    block.classList.remove('provision');
+
+    const secsToNextMin = 60 - new Date().getSeconds();
+    const secsDisplay = secsToNextMin === 60 ? 0 : secsToNextMin;
+    countdownMinsEl.textContent = '00';
+    countdownSecsEl.textContent = String(secsDisplay).padStart(2, '0');
+  }
 }
 
 function updateEventTime() {
@@ -861,10 +1327,14 @@ function connect() {
   wsConnection = ws;
 
   ws.onopen = () => {
+    console.log('[ws] connected'); // DEBUG
     wsConnected = true;
     statusDot.classList.add('connected');
     statusText.textContent = 'LIVE';
     authenticateWebSocket();
+    requestOrderBook();
+    if (obRefreshInterval) clearInterval(obRefreshInterval);
+    obRefreshInterval = setInterval(requestOrderBook, 3000);
   };
 
   ws.onmessage = (event) => {
@@ -874,6 +1344,7 @@ function connect() {
     if (data.type === 'auth_success') {
       currentUser = data.user;
       updateAuthUI();
+      requestMyOrders();
       return;
     }
     if (data.type === 'auth_error') {
@@ -888,11 +1359,27 @@ function connect() {
       }
       return;
     }
+    if (data.type === 'orderbook') {
+      orderbookData = {
+        bids: data.bids || [],
+        asks: data.asks || [],
+        lastTradePrice: data.lastTradePrice !== undefined ? data.lastTradePrice : orderbookData.lastTradePrice,
+        volume: data.volume !== undefined ? data.volume : orderbookData.volume
+      };
+      renderOrderBook();
+      return;
+    }
+    if (data.type === 'my_orders') {
+      openOrders = data.orders || [];
+      renderOpenOrders();
+      return;
+    }
     if (data.type === 'order_accepted') {
       console.log('Order accepted:', data.order);
       shares = 0;
       sharesInput.value = '';
       updateBetUI();
+      requestMyOrders();
       return;
     }
     if (data.type === 'order_rejected') {
@@ -901,15 +1388,98 @@ function connect() {
     }
     if (data.type === 'order_cancelled') {
       console.log('Order cancelled:', data.orderId, 'refund:', data.refund);
+      requestMyOrders();
       return;
     }
-    if (data.type === 'order_update' || data.type === 'trade' || data.type === 'settlement') {
-      console.log(data.type + ':', data);
+    if (data.type === 'order_update') {
+      console.log('order_update:', data);
+      requestMyOrders();
       return;
     }
+    if (data.type === 'trade') {
+      console.log('trade:', data);
+      return;
+    }
+    if (data.type === 'settlement') {
+      console.log('settlement:', data);
+      requestMyOrders();
+      return;
+    }
+    // Market list/lifecycle messages
+    if (data.type === 'market_list') {
+      marketsList = data.markets || [];
+      console.log('[market_list] received', marketsList.length, 'markets:', marketsList.map(m => m.slug + '(' + m.phase + ')').join(', ')); // DEBUG
+      renderMarketsList();
+      const urlSlug = getSlugFromURL();
+      if (urlSlug && marketsList.find(m => m.slug === urlSlug)) {
+        selectMarket(urlSlug);
+      } else {
+        // Prefer active market, fall back to nearest provision market
+        const active = marketsList.find(m => m.phase === 'active');
+        if (active) {
+          selectMarket(active.slug);
+        } else {
+          const nearest = marketsList
+            .filter(m => m.phase === 'provision')
+            .sort((a, b) => a.minuteStart - b.minuteStart)[0];
+          if (nearest) {
+            console.log('[market_list] no active market, selecting nearest provision:', nearest.slug); // DEBUG
+            selectMarket(nearest.slug);
+          }
+        }
+      }
+      return;
+    }
+    if (data.type === 'market_phase_change') {
+      console.log('[market_phase_change]', data.slug, '→', data.phase); // DEBUG
+      const m = marketsList.find(x => x.slug === data.slug);
+      if (m) {
+        m.phase = data.phase;
+        if (data.priceToBeat) m.priceToBeat = parseFloat(data.priceToBeat);
+        if (data.finalPrice) m.finalPrice = parseFloat(data.finalPrice);
+        if (data.outcome) m.outcome = data.outcome;
+      }
+      renderMarketsList();
+      if (data.slug === currentMarketSlug) {
+        currentMarketPhase = data.phase;
+        updateRightPanel();
+      }
+      // Auto-select new active market if user was on the one that just closed
+      if (data.phase === 'active' && (!currentMarketSlug || currentMarketPhase === 'closed')) {
+        selectMarket(data.slug);
+      }
+      return;
+    }
+    if (data.type === 'market_created') {
+      if (data.market) marketsList.push(data.market);
+      renderMarketsList();
+      return;
+    }
+    if (data.type === 'liquidity_added') {
+      const posEl = document.getElementById('lpPosition');
+      const posVal = document.getElementById('lpPosValue');
+      if (posEl && posVal) {
+        posEl.style.display = '';
+        posVal.textContent = data.position.yes + ' Up + ' + data.position.no + ' Down';
+      }
+      const lpInput = document.getElementById('lpAmountInput');
+      if (lpInput) lpInput.value = '';
+      return;
+    }
+    if (data.type === 'market_info') {
+      // Response to get_market — could update local market data
+      return;
+    }
+
     if (data.type === 'price_to_beat') {
       priceToBeat = parseFloat(data.priceToBeat);
       priceToBeatEl.textContent = '$' + formatPrice(priceToBeat);
+      // Only reset orderbook if viewing the active market
+      if (!currentMarketSlug || data.slug === currentMarketSlug) {
+        orderbookData = { bids: [], asks: [], lastTradePrice: null, volume: 0 };
+        renderOrderBook();
+        requestMyOrders();
+      }
       return;
     }
 
@@ -928,6 +1498,10 @@ function connect() {
     wsConnection = null;
     statusDot.classList.remove('connected');
     statusText.textContent = 'Reconnecting...';
+    if (obRefreshInterval) {
+      clearInterval(obRefreshInterval);
+      obRefreshInterval = null;
+    }
     setTimeout(connect, 2000);
   };
 

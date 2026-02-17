@@ -1,6 +1,6 @@
 module.exports = {
   // WebSocket server port for frontend
-  serverPort: 8080,
+  serverPort: 3002,
 
   // Public price feed WebSocket port
   priceFeedPort: 8082,
